@@ -4,6 +4,7 @@
 
 <!-- ONE-SENTENCE DESCRIPTION: Fill in after Phase 1 -->
 
+Project "Vritti" is a machine learning sentiment analysis project that suggests the visitor to whether to buy, hold or sell a particular company share. It does so by fetching news headlines in live time from NewsAPI and then uses FinBERT to score the news on sentiment and then guide the user. 
 ---
 
 ## ⚠️ Disclaimer
@@ -94,5 +95,5 @@ FastAPI auto-docs available at `/docs` once the service is running.
 ## Author
 
 **Nidhish**  
-B.Tech CSE, MAIT Delhi (2023–27)  
-[GitHub](https://github.com/Nidhish-05) · [LinkedIn](https://linkedin.com/in/nidhish-bansal-)
+B.Tech CST, MAIT Delhi (2023–27)  
+[GitHub](https://github.com/Nidhish-05) · [LinkedIn](https://linkedin.com/in/nidhish-bansal-906a83298)
