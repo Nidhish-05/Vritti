@@ -1,0 +1,3 @@
+-- sql/migrations/ — Future schema changes go here
+-- Naming convention: V{version}__{description}.sql
+-- Example: V001__add_correlation_table.sql
