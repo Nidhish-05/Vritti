@@ -25,7 +25,7 @@ This project is built for **educational and research purposes only**. Nothing in
 | Layer | Technology |
 |---|---|
 | News Data | NewsAPI |
-| Price Data | yfinance |
+| Price Data | Massive (formerly Polygon.io) |
 | NLP Model | FinBERT (`ProsusAI/finbert`) |
 | Processing | Python asyncio |
 | Storage | PostgreSQL + TimescaleDB |
@@ -34,7 +34,7 @@ This project is built for **educational and research purposes only**. Nothing in
 | Dashboard | Streamlit |
 | Containerization | Docker + Docker Compose |
 | CI/CD | GitHub Actions |
-| Cloud | Render / Railway |
+| Cloud | Render / Railway / AWS |
 
 ---
 
@@ -74,14 +74,15 @@ FastAPI auto-docs available at `/docs` once the service is running.
 
 | Phase | Status | Notes |
 |---|---|---|
-| Phase 1 — Foundation & Data Exploration | ✅ Completed | |
-| Phase 2 — Ingestion Service | 🔄 In Progress | |
+| Phase 1 — Foundation & Data Exploration | ✅ Completed | Explored yfinance & NewsAPI responses, initialized Docker + TimescaleDB, created tables and hypertables. |
+| Phase 2 — Ingestion Service | ✅ Completed | Implemented NewsClient, custom Massive (Polygon) PriceClient, DB batch inserts via asyncpg, and asyncio background scheduler loops. |
 | Phase 3 — NLP Processing (FinBERT) | ⏳ Pending | |
 | Phase 4 — Aggregation & Signal Logic | ⏳ Pending | |
 | Phase 5 — FastAPI Backend | ⏳ Pending | |
 | Phase 6 — Dashboard | ⏳ Pending | |
 | Phase 7 — Docker & CI/CD | ⏳ Pending | |
 | Phase 8 — Cloud Deployment & Polish | ⏳ Pending | |
+
 
 ---
 
