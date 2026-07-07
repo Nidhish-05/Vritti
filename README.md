@@ -74,8 +74,8 @@ FastAPI auto-docs available at `/docs` once the service is running.
 
 | Phase | Status | Notes |
 |---|---|---|
-| Phase 1 — Foundation & Data Exploration | 🔄 In Progress | |
-| Phase 2 — Ingestion Service | ⏳ Pending | |
+| Phase 1 — Foundation & Data Exploration | ✅ Completed | |
+| Phase 2 — Ingestion Service | 🔄 In Progress | |
 | Phase 3 — NLP Processing (FinBERT) | ⏳ Pending | |
 | Phase 4 — Aggregation & Signal Logic | ⏳ Pending | |
 | Phase 5 — FastAPI Backend | ⏳ Pending | |

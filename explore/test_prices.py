@@ -18,13 +18,39 @@ DO NOT proceed to Phase 2 until you can answer all four questions.
 
 # YOUR CODE GOES BELOW THIS LINE
 # (Remember: you write it, not the AI)
-import yfinance as yf
+from massive import RESTClient, rest
 import pandas as pd
+from dotenv import load_dotenv
+import os
 
-dat = yf.Ticker("TSLA")
+api_key = os.getenv("MASSIVE_API_KEY")
 
-df1 = pd.DataFrame(dat.history(period="7d"))
-print(df1)
+client = RESTClient(api_key=api_key)
+
+try: 
+    from massive import RESTClient
+
+    client = RESTClient("jVRTXe_h4WzT34D85nLjMULU1up_aa6t")
+
+    aggs = []
+    for a in client.list_aggs(
+        "AAPL",
+        1,
+        "day",
+        "2025-11-03",
+        "2025-11-28",
+        adjusted="true",
+        sort="asc",
+        limit=120,
+    ):
+        aggs.append(a)
+
+    print(aggs)
+
+    
+
+except Exception as e:
+    print(e)
 
 """
 Answers of the questions posed in the starting of this document:

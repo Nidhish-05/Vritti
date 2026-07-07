@@ -1,6 +1,6 @@
 # ── Ingestion ──────────────────────────────────────────────────────────────────
 newsapi-python==0.2.7
-yfinance==0.2.54
+massive==2.8.0
 aiohttp==3.9.5
 schedule==1.2.2
 
