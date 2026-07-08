@@ -76,12 +76,13 @@ FastAPI auto-docs available at `/docs` once the service is running.
 |---|---|---|
 | Phase 1 — Foundation & Data Exploration | ✅ Completed | Explored yfinance & NewsAPI responses, initialized Docker + TimescaleDB, created tables and hypertables. |
 | Phase 2 — Ingestion Service | ✅ Completed | Implemented NewsClient, custom Massive (Polygon) PriceClient, DB batch inserts via asyncpg, and asyncio background scheduler loops. |
-| Phase 3 — NLP Processing (FinBERT) | ⏳ Pending | |
+| Phase 3 — NLP Processing (FinBERT) | ✅ Completed | Implemented SentimentPipeline for FinBERT models, constructed database classifier pipeline, and added batch UPDATE operations to writer. |
 | Phase 4 — Aggregation & Signal Logic | ⏳ Pending | |
 | Phase 5 — FastAPI Backend | ⏳ Pending | |
 | Phase 6 — Dashboard | ⏳ Pending | |
 | Phase 7 — Docker & CI/CD | ⏳ Pending | |
 | Phase 8 — Cloud Deployment & Polish | ⏳ Pending | |
+
 
 
 ---
