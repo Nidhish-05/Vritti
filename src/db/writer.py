@@ -136,3 +136,38 @@ async def update_news_sentiments(conn, updates: list[tuple]) -> int:
     #Return the total count of records updated.
     return count
 
+async def insert_signal(conn, signal: dict) -> bool:
+    """
+    Inserts a generated signal dictionary into the `signals` table.
+
+    Args:
+        conn: An active asyncpg Connection or Pool object.
+        signal: A dictionary containing the generated signal details.
+    Returns:
+        True if successfully inserted, False otherwise.
+    """
+
+    #SQL query to insert values in database
+    query = '''INSERT INTO signals(
+               generated_at, ticker, signal, sentiment_score, momentum, window_hours) 
+               VALUES($1, $2, $3, $4, $5, $6)
+               ON CONFLICT (generated_at, ticker, window_hours) DO NOTHING;
+            '''
+    
+    #Extract the corresponding values from the signal dictionary.
+    generated_at = signal.get('generated_at')
+    ticker = signal.get('ticker')
+    stock_signal = signal.get('signal')
+    sentiment_score = signal.get('sentiment_score')
+    momentum = signal.get('momentum')
+    window_hours = signal.get('window_hours')
+
+    #Call execute on the connection to insert the values.
+    try:
+        await conn.execute(query, generated_at, ticker, stock_signal, sentiment_score, momentum, window_hours)
+        return True
+    except Exception as e:
+        logger.error(f"Error while inserting data: {e}")
+        return False
+
+
