@@ -13,17 +13,20 @@ async def get_latest_signal(conn, ticker: str) -> dict | None:
     Returns:
         Dictionary of the row, or None if no signals found.
     """
-    # TODO Steps:
-    # 
-    # 1. Write the SQL query to select columns from the signals table.
-    #    - Filter by ticker.
-    #    - Sort by generation time in descending order.
-    #    - Limit to a single record.
-    # 
-    # 2. Fetch the single row from the database.
-    # 
-    # 3. If a row is found, return it as a dictionary. Otherwise, return None.
-    pass
+    
+    #SQL query to select columns from the signals table.
+    query = ''' SELECT * FROM signals
+                WHERE ticker = ($1)
+                ORDER BY generated_at DESC
+                LIMIT 1;
+            '''
+    
+    #Fetch the single row from the database.
+    row = await conn.fetchrow(query, ticker)
+
+    #Return the row as a dict
+    return [dict(row) for row in rows]
+    
 
 async def get_all_signals(conn) -> list[dict]:
     """
@@ -34,16 +37,18 @@ async def get_all_signals(conn) -> list[dict]:
     Returns:
         List of dictionaries containing the latest signal per ticker.
     """
-    # TODO Steps:
-    # 
-    # 1. Write the SQL query to select the latest signal for each distinct ticker.
-    #    Tip: You can use PostgreSQL's DISTINCT ON syntax to achieve this efficiently.
-    #    - Sort by ticker and then by generation time in descending order.
-    # 
-    # 2. Fetch the rows from the database.
-    # 
-    # 3. Convert and return the fetched rows as a list of dictionaries.
-    pass
+    
+    #SQL query to select the latest signal for each distinct ticker.
+    query = '''SELECT DISTINCT ON (ticker) * FROM signals
+               ORDER BY ticker ASC, generated_at DESC;
+            ''' 
+    
+    #Fetch the rows from the database.
+    rows = await conn.fetch(query)
+
+    #Convert and return the fetched rows as a list of dictionaries.
+    if rows:
+        return [dict(row) for row in rows]
 
 async def get_sentiment_history(conn, ticker: str, hours: int) -> list[dict]:
     """
@@ -56,20 +61,22 @@ async def get_sentiment_history(conn, ticker: str, hours: int) -> list[dict]:
     Returns:
         List of dictionaries of news sentiment records.
     """
-    # TODO Steps:
-    # 
-    # 1. Calculate the cutoff timestamp (Current time minus the hours window).
-    # 
-    # 2. Write the SQL query to select news sentiment columns.
-    #    - Filter by ticker.
-    #    - Filter for published times greater than or equal to the cutoff.
-    #    - Filter out rows where the sentiment score has not been calculated.
-    #    - Sort by time in descending order.
-    # 
-    # 3. Fetch the rows from the database.
-    # 
-    # 4. Convert and return the rows as a list of dictionaries.
-    pass
+
+    #Calculate the cutoff timestamp (Current time minus the hours window).
+    current_time = datetime.now(timezone.utc)
+    cutoff_timestamp = current_time - timedelta(hours=hours)
+
+    #SQL query to select news sentiment columns.
+    query = ''' SELECT * FROM news_sentiment
+                WHERE ticker = ($1) AND published_at >= ($2) AND sentiment_score IS NOT NULL
+                ORDER BY published_at DESC;
+            ''' 
+    
+    #Fetch the rows from the database.
+    rows = await conn.fetch(query, ticker, cutoff_timestamp)
+
+    #Convert and return the rows as a list of dictionaries.
+    return [dict(row) for row in rows]
 
 async def get_price_history(conn, ticker: str, hours: int) -> list[dict]:
     """
@@ -82,19 +89,22 @@ async def get_price_history(conn, ticker: str, hours: int) -> list[dict]:
     Returns:
         List of dictionaries of price ticks.
     """
-    # TODO Steps:
-    # 
-    # 1. Calculate the cutoff timestamp (Current time minus the hours window).
-    # 
-    # 2. Write the SQL query to select price columns.
-    #    - Filter by ticker.
-    #    - Filter for stock time greater than or equal to the cutoff.
-    #    - Sort by time in ascending order (older first, for charting).
-    # 
-    # 3. Fetch the rows from the database.
-    # 
-    # 4. Convert and return the rows as a list of dictionaries.
-    pass
+    #Calculate the cutoff timestamp (Current time minus the hours window).
+    current_time = datetime.now(timezone.utc)
+    cutoff_timestamp = current_time - timedelta(hours=hours)
+
+    #SQL query to select price columns.
+    query = ''' SELECT * FROM price_ticks
+                WHERE ticker = ($1) AND stock_date_time >= ($2)
+                ORDER BY stock_date_time;
+            '''
+    
+    #Fetch the rows from the database.
+    rows = await conn.fetch(query, ticker, cutoff_timestamp)
+
+    #Convert and return the rows as a list of dictionaries.
+    
+    return [dict(row) for row in rows]
 
 async def get_latest_news(conn, ticker: str, limit: int = 10) -> list[dict]:
     """
@@ -107,15 +117,16 @@ async def get_latest_news(conn, ticker: str, limit: int = 10) -> list[dict]:
     Returns:
         List of dictionaries of news records.
     """
-    # TODO Steps:
-    # 
-    # 1. Write the SQL query to select news sentiment columns.
-    #    - Filter by ticker.
-    #    - Sort by time in descending order.
-    #    - Limit the count.
-    # 
-    # 2. Fetch the rows from the database.
-    # 
-    # 3. Convert and return the rows as a list of dictionaries.
-    pass
 
+    #SQL query to select news sentiment columns.
+    query = ''' SELECT * FROM news_sentiment
+                WHERE ticker = ($1)
+                ORDER BY published_at DESC
+                LIMIT ($2);
+            ''' 
+    
+    #Fetch the rows from the database.
+    rows = await conn.fetch(query, ticker, limit)
+
+    #Convert and return the rows as a list of dictionaries.
+    return [dict(row) for row in rows]

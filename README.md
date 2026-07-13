@@ -1,10 +1,11 @@
-# Project Vritti 📈
+﻿# Project Vritti 📈
 
-> *Vritti (वृत्ति) — movement, fluctuation. Real-time financial news sentiment & stock signal pipeline.*
+> *Vritti (वृत्ति) — movement, fluctuation.*
 
-<!-- ONE-SENTENCE DESCRIPTION: Fill in after Phase 1 -->
+**A full-stack, end-to-end financial analytics platform** that ingests real-time stock prices and financial news, classifies market sentiment using FinBERT, generates BUY/HOLD/SELL trading signals, and surfaces them through a live React dashboard backed by a FastAPI REST API.
 
-Project "Vritti" is a machine learning sentiment analysis project that suggests the visitor to whether to buy, hold or sell a particular company share. It does so by fetching news headlines in live time from NewsAPI and then uses FinBERT to score the news on sentiment and then guide the user. 
+Built as a flagship portfolio project demonstrating the full ML engineering lifecycle: data ingestion → NLP processing → signal generation → production API → interactive frontend.
+
 ---
 
 ## ⚠️ Disclaimer
@@ -15,62 +16,138 @@ This project is built for **educational and research purposes only**. Nothing in
 
 ## Architecture
 
-<!-- Add architecture.png here in Week 8 -->
-> Architecture diagram coming in Phase 8.
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                        External Data Sources                         │
+│         NewsAPI (financial headlines)   Massive API (OHLCV prices)  │
+└────────────────────┬──────────────────────────┬─────────────────────┘
+                     │                          │
+                     ▼                          ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Ingestion Layer  (src/ingestion/)                 │
+│   scheduler.py — asyncio polling loops (news: 15min, prices: 5min)  │
+│   news.py — fetches & normalizes NewsAPI responses                  │
+│   prices.py — fetches & normalizes OHLCV ticks                      │
+└────────────────────────────────┬────────────────────────────────────┘
+                                 │ asyncpg batch INSERT
+                                 ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│              TimescaleDB  (PostgreSQL + time-series extension)       │
+│   Tables: stock_prices_tick | news_articles | signals               │
+└──────┬──────────────────────────────────────────────────┬───────────┘
+       │                                                  │
+       ▼                                                  ▼
+┌──────────────────────────┐             ┌────────────────────────────┐
+│  Processing (src/processing/)          │  Signals (src/signals/)    │
+│                          │             │                            │
+│  sentiment.py            │             │  generator.py              │
+│  FinBERT classifier →    │             │  5-period momentum +       │
+│  scores each article     │             │  EWMA sentiment →          │
+│                          │             │  BUY / HOLD / SELL         │
+│  aggregator.py           │             │                            │
+│  EWMA rolling sentiment  │             └──────────────┬─────────────┘
+│  score per ticker        │                            │
+└──────────────────────────┘                            │
+                                                        ▼
+                                         ┌──────────────────────────┐
+                                         │  API Layer (src/api/)    │
+                                         │  FastAPI + asyncpg       │
+                                         │                          │
+                                         │  GET /prices/{ticker}    │
+                                         │  GET /sentiment/history  │
+                                         │  GET /sentiment/news/..  │
+                                         │  GET /signals/{ticker}   │
+                                         │  GET /signals/all        │
+                                         └──────────────┬───────────┘
+                                                        │ JSON (HTTP)
+                                                        ▼
+                                         ┌──────────────────────────┐
+                                         │  Frontend (frontend/)    │
+                                         │  React 18 + Vite         │
+                                         │                          │
+                                         │  Ticker search sidebar   │
+                                         │  Signal cards (colored)  │
+                                         │  Price line chart        │
+                                         │  Sentiment area chart    │
+                                         │  News feed + badges      │
+                                         └──────────────────────────┘
+```
 
 ---
 
 ## Tech Stack
 
-| Layer | Technology |
-|---|---|
-| News Data | NewsAPI |
-| Price Data | Massive (formerly Polygon.io) |
-| NLP Model | FinBERT (`ProsusAI/finbert`) |
-| Processing | Python asyncio |
-| Storage | PostgreSQL + TimescaleDB |
-| Signal Logic | Pandas + NumPy |
-| API | FastAPI |
-| Dashboard | Streamlit |
-| Containerization | Docker + Docker Compose |
-| CI/CD | GitHub Actions |
-| Cloud | Render / Railway / AWS |
+| Layer | Technology | Purpose |
+|---|---|---|
+| **News Data** | NewsAPI | Financial headline ingestion |
+| **Price Data** | Massive API (Polygon.io) | OHLCV stock tick ingestion |
+| **NLP Model** | FinBERT (`ProsusAI/finbert`) | Sentiment classification |
+| **Signal Logic** | Pandas + NumPy | EWMA aggregation, momentum calculation |
+| **Processing** | Python asyncio | Non-blocking concurrent pipelines |
+| **Storage** | PostgreSQL + TimescaleDB | Time-series optimized database |
+| **API** | FastAPI + asyncpg | Async REST API, auto-generated Swagger docs |
+| **Frontend** | React 18 + Vite | SPA dashboard, hot-reload dev server |
+| **Charts** | Recharts | Composable financial chart components |
+| **Styling** | TailwindCSS | Dark-mode, utility-first design system |
+| **Containerization** | Docker + Docker Compose | Reproducible local environment |
+| **CI/CD** | GitHub Actions | Lint, test, and build on every push |
+| **Cloud** | Vercel (frontend) + Render (API) | Free-tier deployment |
 
 ---
 
-## Live Demo
+## API Endpoints
 
-<!-- Add public URL in Phase 8 -->
-> Deployment link coming in Phase 8.
+All endpoints are documented interactively at **`http://localhost:8000/docs`** (Swagger UI) when running locally.
+
+| Method | Endpoint | Description |
+|---|---|---|
+| `GET` | `/health` | Server health check |
+| `GET` | `/prices/{ticker}?hours=24` | OHLCV price ticks for a ticker |
+| `GET` | `/sentiment/history?ticker=AAPL&hours=24` | Rolling sentiment scores |
+| `GET` | `/sentiment/news/latest?ticker=AAPL&limit=10` | Latest classified news articles |
+| `GET` | `/signals/{ticker}` | Latest BUY/HOLD/SELL signal for one ticker |
+| `GET` | `/signals/all` | Latest signals for entire watchlist |
 
 ---
 
-## Local Setup (3 commands)
+## Local Setup
+
+**Prerequisites:** Python 3.11+, Node.js 20+, Docker Desktop
 
 ```bash
-# 1. Copy environment variables
+# 1. Clone the repository
+git clone https://github.com/Nidhish-05/Vritti.git
+cd Vritti
+
+# 2. Create & activate conda environment
+conda create -n vritti python=3.11
+conda activate vritti
+
+# 3. Install Python dependencies
+pip install -r requirements.txt
+
+# 4. Configure environment variables
 cp .env.example .env
-# (Fill in your API keys in .env)
+# Edit .env and add your API keys (NEWS_API_KEY, MASSIVE_API_KEY)
 
-# 2. Start all services
-docker-compose up --build
+# 5. Start TimescaleDB (Docker)
+docker-compose up -d
 
-# 3. Open the dashboard
-# → http://localhost:8501
+# 6. Start the FastAPI backend
+python -m uvicorn src.api.main:app --reload
+# → API at http://localhost:8000
+# → Swagger docs at http://localhost:8000/docs
+
+# 7. Start the React frontend (separate terminal)
+cd frontend
+npm install
+npm run dev
+# → Dashboard at http://localhost:5173
 ```
 
 ---
 
-## API Documentation
-
-<!-- Add Swagger URL in Phase 5/8 -->
-FastAPI auto-docs available at `/docs` once the service is running.
-
----
-
 ## Build Journal
-
-*Updated at the end of each phase.*
 
 | Phase | Status | Notes |
 |---|---|---|
@@ -78,25 +155,21 @@ FastAPI auto-docs available at `/docs` once the service is running.
 | Phase 2 — Ingestion Service | ✅ Completed | Implemented NewsClient, custom Massive (Polygon) PriceClient, DB batch inserts via asyncpg, and asyncio background scheduler loops. |
 | Phase 3 — NLP Processing (FinBERT) | ✅ Completed | Implemented SentimentPipeline for FinBERT models, constructed database classifier pipeline, and added batch UPDATE operations to writer. |
 | Phase 4 — Aggregation & Signal Logic | ✅ Completed | Built EWMA-based sentiment aggregation using Pandas, developed 5-period price momentum calculator, and implemented signal generator. |
-| Phase 5 — FastAPI Backend | ⏳ Pending | |
-| Phase 6 — Dashboard | ⏳ Pending | |
-| Phase 7 — Docker & CI/CD | ⏳ Pending | |
-| Phase 8 — Cloud Deployment & Polish | ⏳ Pending | |
-
-
-
+| Phase 5 — FastAPI Backend | ✅ Completed | Developed FastAPI server with lifespan DB pool management, CORS middleware, asyncpg query helpers, and price/sentiment/signal routes. |
+| Phase 6 — React Dashboard | 🚧 In Progress | Building React 18 + Vite SPA with Recharts, TailwindCSS, signal cards, charts, and news feed. |
+| Phase 7 — Docker & CI/CD | ⏳ Pending | Containerize full stack, add GitHub Actions workflow. |
+| Phase 8 — Cloud Deployment | ⏳ Pending | Deploy frontend to Vercel, API to Render; configure production environment. |
 
 ---
 
 ## What I Learned
 
-<!-- Fill in honestly, specifically — this section is high-signal for recruiters -->
-> To be written after Phase 8.
+> To be written honestly and specifically after Phase 8. This section is high-signal for recruiters — it will cover: building async Python pipelines, working with TimescaleDB hypertables, integrating transformer models into production services, designing REST APIs with FastAPI, and building a React frontend from scratch.
 
 ---
 
 ## Author
 
-**Nidhish**  
-B.Tech CST, MAIT Delhi (2023–27)  
+**Nidhish Bansal**
+B.Tech CST, MAIT Delhi (2023–27)
 [GitHub](https://github.com/Nidhish-05) · [LinkedIn](https://linkedin.com/in/nidhish-bansal-906a83298)

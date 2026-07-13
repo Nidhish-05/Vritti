@@ -1,13 +1,75 @@
-"""
-main.py — FastAPI application entry point
+import os
+import logging
+from contextlib import asynccontextmanager
+import asyncpg
+from asyncpg import pool
+from fastapi import APIRouter, FastAPI
+from fastapi.responses import RedirectResponse
+from fastapi.middleware.cors import CORSMiddleware
+from src.api.routes import prices, sentiment, signals
+from dotenv import load_dotenv
 
-TODO (Phase 5): Initialize FastAPI app with:
-  - Lifespan context manager to create/close DB connection pool at startup/shutdown
-  - Include routers from routes/ subpackage
-  - CORS middleware (allow dashboard origin)
-  - Root route redirects to /docs
-  - GET /health endpoint (required for cloud deployment health checks)
+#Configure logging
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
 
-Read lifespan pattern before implementing:
-  https://fastapi.tiangolo.com/advanced/events/
-"""
+#Async context manager function that takes the FastAPI app.
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    
+    
+    #Read the database connection variables from the environment.
+    load_dotenv()
+    db_string = os.getenv("ASYNC_DATABASE_URL")
+
+    #Create an asyncpg connection pool.
+    db_pool = await asyncpg.create_pool(dsn=db_string)
+        
+    #Assign the created pool to the application state.
+    app.state.pool = db_pool
+
+    #Log an info message that the database pool was successfully created.
+    logger.info("Database Pool Initiated Successfully")
+
+    try:
+
+        #To pass control back to the FastAPI execution flow.
+        yield
+        
+    finally:
+
+        #Close the pool to stop handling requests
+        await app.state.pool.close()
+
+        #Log an info message that the database pool has been closed.
+        logger.info("Database Pool Has Been Closed.")
+
+
+#Instantiate the FastAPI app and pass the lifespan context manager.
+app = FastAPI(lifespan=lifespan)
+
+#Add CORS middleware to the FastAPI app to allow cross-origin requests.
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
+#Include the routers from your routes modules.
+app.include_router(prices.router, prefix="/prices", tags=["Prices"])
+app.include_router(sentiment.router, prefix="/sentiment", tags=["Sentiment"])
+app.include_router(signals.router, prefix="/signals", tags=["Signals"])
+
+#Define a GET route at the root path "/" that redirects the clientto the "/docs" swagger documentation page
+@app.get("/")
+async def documentation():
+    return RedirectResponse(url="/docs")
+
+
+#Define a GET route at "/health" that returns a simple status dictionary
+@app.get("/health")
+async def health():
+    return {"status": "healthy"}
