@@ -24,8 +24,8 @@ async def get_latest_signal(conn, ticker: str) -> dict | None:
     #Fetch the single row from the database.
     row = await conn.fetchrow(query, ticker)
 
-    #Return the row as a dict
-    return [dict(row) for row in rows]
+    #Return the row as a dict, or None if no signal was found
+    return dict(row) if row else None
     
 
 async def get_all_signals(conn) -> list[dict]:
@@ -106,27 +106,33 @@ async def get_price_history(conn, ticker: str, hours: int) -> list[dict]:
     
     return [dict(row) for row in rows]
 
-async def get_latest_news(conn, ticker: str, limit: int = 10) -> list[dict]:
+async def get_latest_news(conn, ticker: str = None, limit: int = 10) -> list[dict]:
     """
-    Retrieves the most recent news articles for a ticker.
+    Retrieves the most recent news articles for a ticker or globally.
 
     Args:
         conn: An active asyncpg Connection or Pool.
-        ticker: Stock ticker symbol.
+        ticker: Stock ticker symbol (optional). If None or 'all', fetches globally.
         limit: Max number of articles to return (default 10).
     Returns:
         List of dictionaries of news records.
     """
 
-    #SQL query to select news sentiment columns.
-    query = ''' SELECT * FROM news_sentiment
-                WHERE ticker = ($1)
-                ORDER BY published_at DESC
-                LIMIT ($2);
-            ''' 
-    
-    #Fetch the rows from the database.
-    rows = await conn.fetch(query, ticker, limit)
+    if ticker and ticker.lower() != 'all':
+        # SQL query to select news for a specific ticker.
+        query = ''' SELECT * FROM news_sentiment
+                    WHERE ticker = ($1)
+                    ORDER BY published_at DESC
+                    LIMIT ($2);
+                ''' 
+        rows = await conn.fetch(query, ticker, limit)
+    else:
+        # SQL query to select news globally.
+        query = ''' SELECT * FROM news_sentiment
+                    ORDER BY published_at DESC
+                    LIMIT ($1);
+                ''' 
+        rows = await conn.fetch(query, limit)
 
-    #Convert and return the rows as a list of dictionaries.
+    # Convert and return the rows as a list of dictionaries.
     return [dict(row) for row in rows]

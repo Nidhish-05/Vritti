@@ -32,7 +32,7 @@ async def get_sentiment_history_endpoint(ticker: str, req: Request, hours: int =
 
 #Route 2: Latest News
 @router.get("/news/latest")
-async def get_latest_news_endpoint(ticker: str, req: Request, limit: int = 10):
+async def get_latest_news_endpoint(req: Request, ticker: str = None, limit: int = 10):
     
     #Getting the database pool from FastAPI app
     db_pool = req.app.state.pool

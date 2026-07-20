@@ -1,10 +1,13 @@
-﻿# Project Vritti 📈
+# Project Vritti 📈
 
 > *Vritti (वृत्ति) — movement, fluctuation.*
 
-**A full-stack, end-to-end financial analytics platform** that ingests real-time stock prices and financial news, classifies market sentiment using FinBERT, generates BUY/HOLD/SELL trading signals, and surfaces them through a live React dashboard backed by a FastAPI REST API.
+**A full-stack, end-to-end financial analytics platform** that ingests real-time stock prices and financial news, classifies market sentiment using FinBERT (a domain-specific BERT model), generates BUY/HOLD/SELL trading signals, and surfaces them through a live React dashboard backed by a FastAPI REST API.
 
-Built as a flagship portfolio project demonstrating the full ML engineering lifecycle: data ingestion → NLP processing → signal generation → production API → interactive frontend.
+Built as a flagship portfolio project demonstrating the full ML engineering lifecycle:  
+**Data Ingestion → NLP Processing → Signal Generation → Production API → Interactive Frontend**
+
+> *Built from scratch by Nidhish Bansal, a 4th-year CST student at MAIT Delhi, as an independent project to challenge himself across the full data science and software engineering stack.*
 
 ---
 
@@ -14,26 +17,35 @@ This project is built for **educational and research purposes only**. Nothing in
 
 ---
 
+## 🚀 Live Demo
+
+> **Status:** Running locally. Cloud deployment planned for V1.1.  
+> Start instructions below under [Local Setup](#local-setup).
+
+---
+
 ## Architecture
 
 ```
 ┌─────────────────────────────────────────────────────────────────────┐
 │                        External Data Sources                         │
-│         NewsAPI (financial headlines)   Massive API (OHLCV prices)  │
+│         NewsAPI (financial headlines)   Polygon.io (OHLCV prices)   │
 └────────────────────┬──────────────────────────┬─────────────────────┘
                      │                          │
                      ▼                          ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │                    Ingestion Layer  (src/ingestion/)                 │
 │   scheduler.py — asyncio polling loops (news: 15min, prices: 5min)  │
-│   news.py — fetches & normalizes NewsAPI responses                  │
-│   prices.py — fetches & normalizes OHLCV ticks                      │
+│   news_client.py — fetches & normalizes NewsAPI responses            │
+│   price_client.py — fetches & normalizes Polygon.io OHLCV ticks     │
 └────────────────────────────────┬────────────────────────────────────┘
                                  │ asyncpg batch INSERT
                                  ▼
 ┌─────────────────────────────────────────────────────────────────────┐
 │              TimescaleDB  (PostgreSQL + time-series extension)       │
-│   Tables: stock_prices_tick | news_articles | signals               │
+│   Tables: news_sentiment | price_ticks | signals                     │
+│   Hypertables partitioned on: published_at | stock_date_time |       │
+│   generated_at for time-series query optimization                    │
 └──────┬──────────────────────────────────────────────────┬───────────┘
        │                                                  │
        ▼                                                  ▼
@@ -42,16 +54,18 @@ This project is built for **educational and research purposes only**. Nothing in
 │                          │             │                            │
 │  sentiment.py            │             │  generator.py              │
 │  FinBERT classifier →    │             │  5-period momentum +       │
-│  scores each article     │             │  EWMA sentiment →          │
-│                          │             │  BUY / HOLD / SELL         │
-│  aggregator.py           │             │                            │
-│  EWMA rolling sentiment  │             └──────────────┬─────────────┘
+│  ProsusAI/finbert model  │             │  EWMA sentiment →          │
+│  scores each article     │             │  BUY / HOLD / SELL         │
+│                          │             │                            │
+│  aggregator.py           │             └──────────────┬─────────────┘
+│  EWMA rolling sentiment  │                            │
 │  score per ticker        │                            │
 └──────────────────────────┘                            │
                                                         ▼
                                          ┌──────────────────────────┐
                                          │  API Layer (src/api/)    │
                                          │  FastAPI + asyncpg       │
+                                         │  Connection pool mgmt    │
                                          │                          │
                                          │  GET /prices/{ticker}    │
                                          │  GET /sentiment/history  │
@@ -60,16 +74,18 @@ This project is built for **educational and research purposes only**. Nothing in
                                          │  GET /signals/all        │
                                          └──────────────┬───────────┘
                                                         │ JSON (HTTP)
+                                                        │ Vite Proxy
                                                         ▼
                                          ┌──────────────────────────┐
                                          │  Frontend (frontend/)    │
                                          │  React 18 + Vite         │
                                          │                          │
-                                         │  Ticker search sidebar   │
-                                         │  Signal cards (colored)  │
-                                         │  Price line chart        │
-                                         │  Sentiment area chart    │
-                                         │  News feed + badges      │
+                                         │  3D Tilt Signal Cards    │
+                                         │  Recharts Price Chart    │
+                                         │  Sentiment Area Chart    │
+                                         │  Global News Feed        │
+                                         │  Live Ticker Marquee     │
+                                         │  Dark / Light Mode       │
                                          └──────────────────────────┘
 ```
 
@@ -79,19 +95,30 @@ This project is built for **educational and research purposes only**. Nothing in
 
 | Layer | Technology | Purpose |
 |---|---|---|
-| **News Data** | NewsAPI | Financial headline ingestion |
-| **Price Data** | Massive API (Polygon.io) | OHLCV stock tick ingestion |
-| **NLP Model** | FinBERT (`ProsusAI/finbert`) | Sentiment classification |
-| **Signal Logic** | Pandas + NumPy | EWMA aggregation, momentum calculation |
-| **Processing** | Python asyncio | Non-blocking concurrent pipelines |
-| **Storage** | PostgreSQL + TimescaleDB | Time-series optimized database |
-| **API** | FastAPI + asyncpg | Async REST API, auto-generated Swagger docs |
+| **News Data** | NewsAPI | Financial headline ingestion (50 articles/request) |
+| **Price Data** | Polygon.io (Free Tier) | OHLCV stock tick ingestion |
+| **NLP Model** | FinBERT (`ProsusAI/finbert`) | Domain-specific financial sentiment classification |
+| **Signal Logic** | Pandas + NumPy | EWMA aggregation, 5-period momentum calculation |
+| **Processing** | Python asyncio | Non-blocking concurrent ingestion pipelines |
+| **Storage** | PostgreSQL 16 + TimescaleDB | Time-series optimised database with hypertables |
+| **ORM / Driver** | asyncpg | High-performance async PostgreSQL driver |
+| **API** | FastAPI + Uvicorn | Async REST API, auto-generated Swagger docs |
 | **Frontend** | React 18 + Vite | SPA dashboard, hot-reload dev server |
-| **Charts** | Recharts | Composable financial chart components |
-| **Styling** | TailwindCSS | Dark-mode, utility-first design system |
-| **Containerization** | Docker + Docker Compose | Reproducible local environment |
-| **CI/CD** | GitHub Actions | Lint, test, and build on every push |
-| **Cloud** | Vercel (frontend) + Render (API) | Free-tier deployment |
+| **Charts** | Recharts | Composable, responsive financial chart components |
+| **Styling** | Vanilla CSS | Custom design system, glassmorphism, 3D floating mechanics |
+| **HTTP Client** | Axios | Frontend-to-API communication with Vite proxy |
+| **Icons** | Lucide React | Consistent SVG icon library |
+| **Containerisation** | Docker + Docker Compose | Reproducible local TimescaleDB environment |
+| **CI/CD** | GitHub Actions | Lint, test, and build verification on every push *(planned)* |
+| **Cloud** | Vercel + Render + Neon | Frontend + API + DB deployment *(planned)* |
+
+---
+
+## Watchlist (50 Tickers — V1)
+
+Covering 8 market sectors: Big Tech, Semiconductors, Finance, EV & Clean Energy, Consumer & Retail, Healthcare & Biotech, Cloud & SaaS, Crypto & Fintech, Aerospace.
+
+`AAPL` `MSFT` `GOOGL` `META` `AMZN` `NVDA` `TSLA` `ORCL` `CRM` `ADBE` `AMD` `INTC` `QCOM` `AVGO` `TSM` `JPM` `GS` `MS` `BAC` `V` `RIVN` `LCID` `NIO` `ENPH` `FSLR` `NFLX` `DIS` `SBUX` `NKE` `MCD` `JNJ` `PFE` `MRNA` `UNH` `ABBV` `NOW` `SNOW` `DDOG` `TEAM` `ZS` `COIN` `PYPL` `SQ` `HOOD` `MSTR` `BA` `LMT` `UBER` `LYFT` `ABNB`
 
 ---
 
@@ -103,8 +130,9 @@ All endpoints are documented interactively at **`http://localhost:8000/docs`** (
 |---|---|---|
 | `GET` | `/health` | Server health check |
 | `GET` | `/prices/{ticker}?hours=24` | OHLCV price ticks for a ticker |
-| `GET` | `/sentiment/history?ticker=AAPL&hours=24` | Rolling sentiment scores |
+| `GET` | `/sentiment/history?ticker=AAPL&hours=24` | Rolling FinBERT sentiment scores |
 | `GET` | `/sentiment/news/latest?ticker=AAPL&limit=10` | Latest classified news articles |
+| `GET` | `/sentiment/news/latest?limit=50` | Global news feed (all tickers) |
 | `GET` | `/signals/{ticker}` | Latest BUY/HOLD/SELL signal for one ticker |
 | `GET` | `/signals/all` | Latest signals for entire watchlist |
 
@@ -112,7 +140,7 @@ All endpoints are documented interactively at **`http://localhost:8000/docs`** (
 
 ## Local Setup
 
-**Prerequisites:** Python 3.11+, Node.js 20+, Docker Desktop
+**Prerequisites:** Python 3.11+, Node.js 20+, Docker Desktop, Conda
 
 ```bash
 # 1. Clone the repository
@@ -128,21 +156,34 @@ pip install -r requirements.txt
 
 # 4. Configure environment variables
 cp .env.example .env
-# Edit .env and add your API keys (NEWS_API_KEY, MASSIVE_API_KEY)
+# Edit .env — add your NEWS_API_KEY and POLYGON_API_KEY
 
 # 5. Start TimescaleDB (Docker)
 docker-compose up -d
 
-# 6. Start the FastAPI backend
-python -m uvicorn src.api.main:app --reload
-# → API at http://localhost:8000
-# → Swagger docs at http://localhost:8000/docs
+# 6. Initialise the database schema
+# Connect to DB and run sql/init.sql once
 
-# 7. Start the React frontend (separate terminal)
+# 7. Start the FastAPI backend  [Terminal 1]
+python -m uvicorn src.api.main:app --reload
+# → API: http://localhost:8000
+# → Swagger: http://localhost:8000/docs
+
+# 8. Start the data pipeline  [Terminal 2]
+python -m src.ingestion.scheduler
+# Let this run — it fetches news every 15min & prices every 5min
+
+# 9. Run FinBERT classifier  [Terminal 3 — run periodically]
+python -m src.processing.classifier
+
+# 10. Generate signals  [Terminal 4 — run periodically]
+python -m src.signals.generator
+
+# 11. Start the React frontend  [Terminal 5]
 cd frontend
 npm install
 npm run dev
-# → Dashboard at http://localhost:5173
+# → Dashboard: http://localhost:5173
 ```
 
 ---
@@ -151,25 +192,37 @@ npm run dev
 
 | Phase | Status | Notes |
 |---|---|---|
-| Phase 1 — Foundation & Data Exploration | ✅ Completed | Explored yfinance & NewsAPI responses, initialized Docker + TimescaleDB, created tables and hypertables. |
-| Phase 2 — Ingestion Service | ✅ Completed | Implemented NewsClient, custom Massive (Polygon) PriceClient, DB batch inserts via asyncpg, and asyncio background scheduler loops. |
-| Phase 3 — NLP Processing (FinBERT) | ✅ Completed | Implemented SentimentPipeline for FinBERT models, constructed database classifier pipeline, and added batch UPDATE operations to writer. |
+| Phase 1 — Foundation & Data Exploration | ✅ Completed | Explored yfinance & NewsAPI responses, initialised Docker + TimescaleDB, created tables and hypertables. |
+| Phase 2 — Ingestion Service | ✅ Completed | Implemented NewsClient, custom Polygon.io PriceClient, DB batch inserts via asyncpg, and asyncio background scheduler loops. |
+| Phase 3 — NLP Processing (FinBERT) | ✅ Completed | Implemented SentimentPipeline for ProsusAI/finbert, constructed database classifier pipeline, and added batch UPDATE operations to writer. |
 | Phase 4 — Aggregation & Signal Logic | ✅ Completed | Built EWMA-based sentiment aggregation using Pandas, developed 5-period price momentum calculator, and implemented signal generator. |
 | Phase 5 — FastAPI Backend | ✅ Completed | Developed FastAPI server with lifespan DB pool management, CORS middleware, asyncpg query helpers, and price/sentiment/signal routes. |
-| Phase 6 — React Dashboard | 🚧 In Progress | Building React 18 + Vite SPA with Recharts, TailwindCSS, signal cards, charts, and news feed. |
-| Phase 7 — Docker & CI/CD | ⏳ Pending | Containerize full stack, add GitHub Actions workflow. |
-| Phase 8 — Cloud Deployment | ⏳ Pending | Deploy frontend to Vercel, API to Render; configure production environment. |
+| Phase 6 — React Dashboard | ✅ Completed | Built React 18 + Vite SPA with Recharts, custom Vanilla CSS design system, 3D floating tilt card mechanics, live ticker marquee, and global news feed. Expanded watchlist to 50 tickers. |
+| Phase 7 — Docker & CI/CD | ⏳ Planned | Full-stack Docker Compose, GitHub Actions CI/CD workflow. |
+| Phase 8 — Cloud Deployment | ⏳ Planned | Three deployment pathways evaluated — see `implementation.md` for full analysis. |
 
 ---
 
 ## What I Learned
 
-> To be written honestly and specifically after Phase 8. This section is high-signal for recruiters — it will cover: building async Python pipelines, working with TimescaleDB hypertables, integrating transformer models into production services, designing REST APIs with FastAPI, and building a React frontend from scratch.
+> *To be written honestly and specifically after Phase 8. This section is high-signal for recruiters — it will cover: building async Python pipelines from scratch, working with TimescaleDB hypertables, integrating transformer NLP models (FinBERT) into a production data pipeline, designing REST APIs with FastAPI, building a React frontend with custom 3D physics-based UI mechanics, and making informed architectural decisions about cloud deployment.*
+
+---
+
+## Versioning Roadmap
+
+| Version | Headline Feature | Key Addition |
+|---|---|---|
+| **V1** *(current)* | FinBERT news sentiment → BUY/HOLD/SELL signals | FastAPI + React + TimescaleDB |
+| **V2** *(planned)* | LSTM price-trend prediction + IPO watchlist + Risk calculator | PyTorch/TensorFlow, SEC EDGAR API |
+| **V3** *(long-term)* | Education platform + GenAI stock report generator (SaaS) | LLM API, Auth, Stripe billing |
 
 ---
 
 ## Author
 
-**Nidhish Bansal**
-B.Tech CST, MAIT Delhi (2023–27)
+**Nidhish Bansal**  
+B.Tech Computer Science and Technology, MAIT Delhi (2023–27)  
+Data Science & ML Enthusiast | Building things that turn raw data into decisions.
+
 [GitHub](https://github.com/Nidhish-05) · [LinkedIn](https://linkedin.com/in/nidhish-bansal-906a83298)

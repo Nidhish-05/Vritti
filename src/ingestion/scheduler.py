@@ -11,12 +11,91 @@ from src.db.writer import insert_news_records, insert_price_ticks
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-#The watchlist: Ticker -> News Search Query
+# ── Watchlist ──────────────────────────────────────────────────────────────────
+# Format: "TICKER": "NewsAPI search query"
+#
+# NEWS BATCHING STRATEGY (important for free tier):
+#   NewsAPI free plan = 100 requests/day.
+#   Rather than 1 request per ticker, several tickers share one query using OR.
+#   The news_polling_loop fetches 50 articles per query — enough to cover all
+#   tickers in a batch. Articles are tagged with the ticker key, not filtered by
+#   the query result, so we get broad market coverage within the rate limit.
+#
+# PRICE POLLING:
+#   Polygon.io free tier has no ticker-count limit — all 50 tickers are fetched
+#   independently with a small sleep between requests to avoid throttling.
+# ──────────────────────────────────────────────────────────────────────────────
+
 WATCHLIST = {
-    "TSLA": "Tesla OR TSLA OR Elon Musk",
-    "AAPL": "Apple Inc OR AAPL OR iPhone",
-    "MSFT": "Microsoft OR MSFT OR Windows"
+    # ── Big Tech ──────────────────────────────────────────────────────────────
+    "AAPL":  "Apple Inc OR AAPL OR iPhone OR Tim Cook",
+    "MSFT":  "Microsoft OR MSFT OR Azure OR Satya Nadella",
+    "GOOGL": "Alphabet OR Google OR GOOGL OR Sundar Pichai",
+    "META":  "Meta Platforms OR META OR Facebook OR Mark Zuckerberg",
+    "AMZN":  "Amazon OR AMZN OR AWS OR Andy Jassy",
+    "NVDA":  "NVIDIA OR NVDA OR Jensen Huang OR GPU AI",
+    "TSLA":  "Tesla OR TSLA OR Elon Musk OR electric vehicle",
+    "ORCL":  "Oracle OR ORCL OR Larry Ellison OR cloud database",
+    "CRM":   "Salesforce OR CRM OR Marc Benioff OR SaaS",
+    "ADBE":  "Adobe OR ADBE OR Creative Cloud OR Firefly AI",
+
+    # ── Semiconductors ────────────────────────────────────────────────────────
+    "AMD":   "AMD OR Advanced Micro Devices OR Lisa Su OR Ryzen",
+    "INTC":  "Intel OR INTC OR Pat Gelsinger OR semiconductor",
+    "QCOM":  "Qualcomm OR QCOM OR Snapdragon OR 5G chip",
+    "AVGO":  "Broadcom OR AVGO OR semiconductor OR networking chip",
+    "TSM":   "TSMC OR TSM OR Taiwan Semiconductor OR chip foundry",
+
+    # ── Finance & Banking ─────────────────────────────────────────────────────
+    "JPM":   "JPMorgan OR JPM OR Jamie Dimon OR banking earnings",
+    "GS":    "Goldman Sachs OR GS OR investment banking",
+    "MS":    "Morgan Stanley OR MS OR wealth management",
+    "BAC":   "Bank of America OR BAC OR consumer banking",
+    "V":     "Visa OR payment network OR fintech earnings",
+
+    # ── EV & Clean Energy ─────────────────────────────────────────────────────
+    "RIVN":  "Rivian OR RIVN OR electric truck OR EV startup",
+    "LCID":  "Lucid Motors OR LCID OR luxury EV OR electric car",
+    "NIO":   "NIO OR Chinese EV OR electric vehicle China",
+    "ENPH":  "Enphase Energy OR ENPH OR solar microinverter",
+    "FSLR":  "First Solar OR FSLR OR solar panel OR clean energy",
+
+    # ── Consumer & Retail ─────────────────────────────────────────────────────
+    "NFLX":  "Netflix OR NFLX OR streaming OR Reed Hastings",
+    "DIS":   "Disney OR DIS OR Disney+ OR Bob Iger OR streaming",
+    "SBUX":  "Starbucks OR SBUX OR coffee OR Brian Niccol",
+    "NKE":   "Nike OR NKE OR athletic OR John Donahoe",
+    "MCD":   "McDonald's OR MCD OR fast food OR Chris Kempczinski",
+
+    # ── Healthcare & Biotech ──────────────────────────────────────────────────
+    "JNJ":   "Johnson and Johnson OR JNJ OR pharma OR medical device",
+    "PFE":   "Pfizer OR PFE OR vaccine OR drug pipeline",
+    "MRNA":  "Moderna OR MRNA OR mRNA OR vaccine biotech",
+    "UNH":   "UnitedHealth OR UNH OR health insurance",
+    "ABBV":  "AbbVie OR ABBV OR Humira OR immunology drug",
+
+    # ── Cloud & Enterprise SaaS ───────────────────────────────────────────────
+    "NOW":   "ServiceNow OR NOW OR enterprise software OR workflow AI",
+    "SNOW":  "Snowflake OR SNOW OR data cloud OR data warehouse",
+    "DDOG":  "Datadog OR DDOG OR cloud monitoring OR observability",
+    "TEAM":  "Atlassian OR TEAM OR Jira OR developer tools",
+    "ZS":    "Zscaler OR ZS OR cybersecurity OR zero trust",
+
+    # ── Crypto-adjacent & Fintech ─────────────────────────────────────────────
+    "COIN":  "Coinbase OR COIN OR crypto exchange OR Bitcoin",
+    "PYPL":  "PayPal OR PYPL OR digital payments OR fintech",
+    "SQ":    "Block OR Square OR SQ OR Jack Dorsey OR fintech",
+    "HOOD":  "Robinhood OR HOOD OR retail investing OR commission-free",
+    "MSTR":  "MicroStrategy OR MSTR OR Bitcoin treasury OR Michael Saylor",
+
+    # ── Aerospace & Industrial ────────────────────────────────────────────────
+    "BA":    "Boeing OR BA OR aerospace OR airline supply",
+    "LMT":   "Lockheed Martin OR LMT OR defense contract OR fighter jet",
+    "UBER":  "Uber OR UBER OR ride-hailing OR Dara Khosrowshahi",
+    "LYFT":  "Lyft OR LYFT OR ride-sharing OR gig economy",
+    "ABNB":  "Airbnb OR ABNB OR short-term rental OR travel platform",
 }
+
 
 async def price_polling_loop(pool, price_client: PriceClient):
     """

@@ -1,0 +1,1031 @@
+/* ═══════════════════════════════════════════════════════════════════
+   Vritti — Global Design System
+   ═══════════════════════════════════════════════════════════════════ */
+
+/* Google Fonts must be imported BEFORE tailwindcss to satisfy PostCSS @import ordering */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap');
+@import "tailwindcss";
+
+/* ── Theme Tokens ─────────────────────────────────────────────────── */
+
+:root[data-theme="dark"],
+:root {
+  --bg-primary:      #04080f;
+  --bg-surface:      #0a1628;
+  --bg-card:         #0f1f38;
+  --bg-card-hover:   #162d4a;
+  --bg-input:        #0d1e35;
+
+  --border-color:    rgba(0, 180, 255, 0.10);
+  --border-hover:    rgba(0, 198, 255, 0.30);
+
+  --text-primary:    #e8f0ff;
+  --text-secondary:  #7a9cc0;
+  --text-muted:      #3d5c82;
+
+  --accent:          #00c6ff;
+  --accent-dim:      rgba(0, 198, 255, 0.12);
+  --accent-glow:     0 0 20px rgba(0, 198, 255, 0.25);
+
+  --signal-buy:      #00e676;
+  --signal-buy-dim:  rgba(0, 230, 118, 0.12);
+  --signal-buy-glow: 0 0 16px rgba(0, 230, 118, 0.35);
+
+  --signal-sell:     #ff3d71;
+  --signal-sell-dim: rgba(255, 61, 113, 0.12);
+  --signal-sell-glow:0 0 16px rgba(255, 61, 113, 0.35);
+
+  --signal-hold:     #ffc940;
+  --signal-hold-dim: rgba(255, 201, 64, 0.12);
+
+  --glass-bg:        rgba(6, 13, 26, 0.80);
+  --glass-border:    rgba(0, 198, 255, 0.12);
+
+  --marquee-bg:      rgba(4, 9, 18, 0.96);
+  --marquee-border:  rgba(0, 198, 255, 0.15);
+
+  --shadow-card:     0 4px 24px rgba(0, 0, 0, 0.40);
+  --shadow-elevated: 0 8px 40px rgba(0, 0, 0, 0.60);
+
+  --scrollbar-thumb: #1e3a5f;
+  --scrollbar-track: #060d1a;
+}
+
+:root[data-theme="light"] {
+  --bg-primary:      #eef3ff;
+  --bg-surface:      #ffffff;
+  --bg-card:         #f4f8ff;
+  --bg-card-hover:   #e8f0ff;
+  --bg-input:        #ffffff;
+
+  --border-color:    rgba(0, 80, 200, 0.10);
+  --border-hover:    rgba(0, 80, 200, 0.30);
+
+  --text-primary:    #050e24;
+  --text-secondary:  #2a4a7c;
+  --text-muted:      #7a9cc0;
+
+  --accent:          #0066e0;
+  --accent-dim:      rgba(0, 102, 224, 0.08);
+  --accent-glow:     0 0 20px rgba(0, 102, 224, 0.15);
+
+  --signal-buy:      #00a844;
+  --signal-buy-dim:  rgba(0, 168, 68, 0.10);
+  --signal-buy-glow: 0 0 16px rgba(0, 168, 68, 0.20);
+
+  --signal-sell:     #d9002e;
+  --signal-sell-dim: rgba(217, 0, 46, 0.10);
+  --signal-sell-glow:0 0 16px rgba(217, 0, 46, 0.20);
+
+  --signal-hold:     #cc8800;
+  --signal-hold-dim: rgba(204, 136, 0, 0.10);
+
+  --glass-bg:        rgba(255, 255, 255, 0.82);
+  --glass-border:    rgba(0, 80, 200, 0.12);
+
+  --marquee-bg:      rgba(238, 243, 255, 0.97);
+  --marquee-border:  rgba(0, 80, 200, 0.15);
+
+  --shadow-card:     0 4px 24px rgba(0, 50, 150, 0.08);
+  --shadow-elevated: 0 8px 40px rgba(0, 50, 150, 0.14);
+
+  --scrollbar-thumb: #b8cce8;
+  --scrollbar-track: #eef3ff;
+}
+
+/* ── Global Resets ────────────────────────────────────────────────── */
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+html {
+  font-family: 'Inter', system-ui, sans-serif;
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  min-height: 100vh;
+  transition: background-color 0.3s ease, color 0.3s ease;
+  overflow-x: hidden;
+}
+
+#root {
+  display: flex;
+  flex-direction: column;
+  min-height: 100vh;
+}
+
+/* ── Scrollbar ────────────────────────────────────────────────────── */
+
+::-webkit-scrollbar { width: 6px; height: 6px; }
+::-webkit-scrollbar-track { background: var(--scrollbar-track); }
+::-webkit-scrollbar-thumb { background: var(--scrollbar-thumb); border-radius: 3px; }
+::-webkit-scrollbar-thumb:hover { background: var(--accent); }
+
+/* ── Typography ───────────────────────────────────────────────────── */
+
+.font-mono { font-family: 'JetBrains Mono', monospace; }
+.text-gradient {
+  background: linear-gradient(135deg, var(--accent) 0%, #7b6fff 100%);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+/* ── Keyframe Animations ──────────────────────────────────────────── */
+
+@keyframes marquee-scroll {
+  0%   { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@keyframes pulse-glow {
+  0%, 100% { box-shadow: 0 0 6px rgba(0, 230, 118, 0.4); }
+  50%       { box-shadow: 0 0 20px rgba(0, 230, 118, 0.8); }
+}
+
+@keyframes pulse-sell {
+  0%, 100% { box-shadow: 0 0 6px rgba(255, 61, 113, 0.4); }
+  50%       { box-shadow: 0 0 20px rgba(255, 61, 113, 0.8); }
+}
+
+@keyframes fade-in {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes slide-down {
+  from { opacity: 0; transform: translateY(-8px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes shimmer {
+  0%   { background-position: -200% center; }
+  100% { background-position: 200% center; }
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* ── Page Entry Animation ─────────────────────────────────────────── */
+
+.page-enter {
+  animation: fade-in 0.35s ease both;
+}
+
+/* ── Glass Card ───────────────────────────────────────────────────── */
+
+.glass-card {
+  background: var(--glass-bg);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+  border: 1px solid var(--glass-border);
+  box-shadow: var(--shadow-card);
+  transition: border-color 0.2s ease, box-shadow 0.2s ease, transform 0.2s ease;
+}
+
+.glass-card:hover {
+  border-color: var(--border-hover);
+  box-shadow: var(--shadow-elevated);
+}
+
+/* ── Signal Badges ────────────────────────────────────────────────── */
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 10px;
+  border-radius: 999px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+
+.badge-buy {
+  color: var(--signal-buy);
+  background: var(--signal-buy-dim);
+  border: 1px solid rgba(0, 230, 118, 0.25);
+  animation: pulse-glow 2.5s ease-in-out infinite;
+}
+
+.badge-sell {
+  color: var(--signal-sell);
+  background: var(--signal-sell-dim);
+  border: 1px solid rgba(255, 61, 113, 0.25);
+  animation: pulse-sell 2.5s ease-in-out infinite;
+}
+
+.badge-hold {
+  color: var(--signal-hold);
+  background: var(--signal-hold-dim);
+  border: 1px solid rgba(255, 201, 64, 0.25);
+}
+
+.badge-neutral {
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-color);
+}
+
+/* ── Navbar ───────────────────────────────────────────────────────── */
+
+.navbar {
+  position: fixed;
+  top: 0; left: 0; right: 0;
+  z-index: 200;
+  height: 64px;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--glass-border);
+  transition: background 0.3s ease, border-color 0.3s ease;
+}
+
+.navbar-inner {
+  max-width: 1280px;
+  margin: 0 auto;
+  height: 100%;
+  padding: 0 24px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+.navbar-logo {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  text-decoration: none;
+  flex-shrink: 0;
+}
+
+.navbar-logo img {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  object-fit: cover;
+  border: 1.5px solid var(--glass-border);
+}
+
+.navbar-logo-text {
+  font-size: 20px;
+  font-weight: 800;
+  color: var(--text-primary);
+  letter-spacing: -0.5px;
+  transition: color 0.2s;
+}
+
+.navbar-logo-text span {
+  color: var(--accent);
+}
+
+.navbar-links {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.nav-link {
+  padding: 6px 16px;
+  border-radius: 8px;
+  font-size: 14px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s ease, background 0.2s ease;
+}
+
+.nav-link:hover {
+  color: var(--text-primary);
+  background: var(--accent-dim);
+}
+
+.nav-link.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.navbar-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.btn-icon {
+  width: 38px;
+  height: 38px;
+  border-radius: 10px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, border-color 0.2s, background 0.2s;
+}
+
+.btn-icon:hover {
+  color: var(--accent);
+  border-color: var(--accent);
+  background: var(--accent-dim);
+}
+
+.hamburger { display: none; }
+
+/* Mobile menu */
+.mobile-menu {
+  display: none;
+  position: fixed;
+  top: 64px; left: 0; right: 0;
+  z-index: 199;
+  background: var(--glass-bg);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
+  border-bottom: 1px solid var(--glass-border);
+  padding: 16px 24px;
+  flex-direction: column;
+  gap: 4px;
+  animation: slide-down 0.2s ease both;
+}
+
+.mobile-menu.open { display: flex; }
+
+.mobile-nav-link {
+  padding: 12px 16px;
+  border-radius: 10px;
+  font-size: 15px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-decoration: none;
+  transition: color 0.2s, background 0.2s;
+}
+
+.mobile-nav-link:hover,
+.mobile-nav-link.active {
+  color: var(--accent);
+  background: var(--accent-dim);
+}
+
+@media (max-width: 768px) {
+  .navbar-links { display: none; }
+  .hamburger { display: flex; }
+}
+
+/* ── Ticker Marquee (Fixed Bottom) ────────────────────────────────── */
+
+.marquee-wrapper {
+  position: fixed;
+  bottom: 0; left: 0; right: 0;
+  z-index: 200;
+  height: 36px;
+  background: var(--marquee-bg);
+  border-top: 1px solid var(--marquee-border);
+  overflow: hidden;
+  display: flex;
+  align-items: center;
+}
+
+.marquee-label {
+  flex-shrink: 0;
+  padding: 0 14px;
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+  color: var(--accent);
+  border-right: 1px solid var(--marquee-border);
+  height: 100%;
+  display: flex;
+  align-items: center;
+  background: inherit;
+  z-index: 1;
+}
+
+.marquee-track-wrapper {
+  flex: 1;
+  overflow: hidden;
+  position: relative;
+}
+
+.marquee-track {
+  display: flex;
+  align-items: center;
+  width: max-content;
+  animation: marquee-scroll 35s linear infinite;
+  gap: 0;
+}
+
+.marquee-track:hover {
+  animation-play-state: paused;
+}
+
+.marquee-item {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 0 20px;
+  border-right: 1px solid var(--marquee-border);
+  height: 36px;
+  font-size: 12px;
+  white-space: nowrap;
+  transition: background 0.15s;
+  cursor: default;
+}
+
+.marquee-item:hover {
+  background: var(--accent-dim);
+}
+
+.marquee-ticker {
+  font-weight: 700;
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 12px;
+  color: var(--text-primary);
+}
+
+.marquee-signal-buy   { color: var(--signal-buy); font-weight: 600; }
+.marquee-signal-sell  { color: var(--signal-sell); font-weight: 600; }
+.marquee-signal-hold  { color: var(--signal-hold); font-weight: 600; }
+.marquee-signal-none  { color: var(--text-muted); font-weight: 600; }
+
+.marquee-momentum {
+  font-family: 'JetBrains Mono', monospace;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Main Content Wrapper ─────────────────────────────────────────── */
+
+.main-content {
+  flex: 1;
+  padding-top: 64px;   /* navbar height */
+  padding-bottom: 36px; /* marquee height */
+}
+
+/* ── Page Skeleton / Placeholder ──────────────────────────────────── */
+
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    var(--bg-card) 25%,
+    var(--bg-card-hover) 50%,
+    var(--bg-card) 75%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.8s ease infinite;
+  border-radius: 8px;
+}
+
+/* ── Buttons ──────────────────────────────────────────────────────── */
+
+.btn-primary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  background: var(--accent);
+  color: #000;
+  font-weight: 600;
+  font-size: 14px;
+  border: none;
+  cursor: pointer;
+  transition: opacity 0.2s, transform 0.15s, box-shadow 0.2s;
+  text-decoration: none;
+}
+
+.btn-primary:hover {
+  opacity: 0.90;
+  transform: translateY(-1px);
+  box-shadow: var(--accent-glow);
+}
+
+.btn-secondary {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 10px 24px;
+  border-radius: 10px;
+  background: transparent;
+  color: var(--accent);
+  font-weight: 600;
+  font-size: 14px;
+  border: 1px solid var(--accent);
+  cursor: pointer;
+  transition: background 0.2s, transform 0.15s;
+  text-decoration: none;
+}
+
+.btn-secondary:hover {
+  background: var(--accent-dim);
+  transform: translateY(-1px);
+}
+
+/* ── Spinner ──────────────────────────────────────────────────────── */
+
+.spinner {
+  width: 22px;
+  height: 22px;
+  border: 2.5px solid var(--border-color);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+
+/* ══════════════════════════════════════════════════════════════════
+   Phase 2 — Market Dashboard Components
+   ══════════════════════════════════════════════════════════════════ */
+
+/* ── Search Bar ───────────────────────────────────────────────────── */
+
+.search-wrapper {
+  position: relative;
+  max-width: 520px;
+  width: 100%;
+}
+
+.search-icon {
+  position: absolute;
+  left: 14px;
+  top: 50%;
+  transform: translateY(-50%);
+  color: var(--text-muted);
+  pointer-events: none;
+  transition: color 0.2s;
+}
+
+.search-input {
+  width: 100%;
+  height: 48px;
+  padding: 0 44px 0 44px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-input);
+  color: var(--text-primary);
+  font-size: 15px;
+  font-family: 'JetBrains Mono', monospace;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+  outline: none;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.search-input::placeholder {
+  color: var(--text-muted);
+  font-family: 'Inter', sans-serif;
+  font-weight: 400;
+  letter-spacing: normal;
+}
+
+.search-input:focus {
+  border-color: var(--accent);
+  box-shadow: 0 0 0 3px var(--accent-dim);
+}
+
+.search-input:focus + .search-icon {
+  color: var(--accent);
+}
+
+.search-clear {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  width: 28px;
+  height: 28px;
+  border-radius: 6px;
+  border: none;
+  background: transparent;
+  color: var(--text-muted);
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: color 0.2s, background 0.2s;
+}
+
+.search-clear:hover {
+  color: var(--text-primary);
+  background: var(--bg-card);
+}
+
+/* ── Signal Cards ─────────────────────────────────────────────────── */
+
+.cards-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(270px, 1fr));
+  gap: 20px;
+}
+
+.signal-card-wrapper {
+  animation: fade-in 0.4s ease both;
+  perspective: 1000px;
+}
+
+.signal-card {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 18px;
+  padding: 24px;
+  cursor: pointer;
+  position: relative;
+  overflow: hidden;
+  /* Removed CSS transition on transform to avoid fighting with JS requestAnimationFrame */
+  transition: box-shadow 0.2s ease, border-color 0.2s ease;
+  transform-style: preserve-3d;
+  width: 100%;
+  height: 100%;
+}
+
+.signal-card::before {
+  content: '';
+  position: absolute;
+  left: 0; top: 0; bottom: 0;
+  width: 4px;
+  border-radius: 18px 0 0 18px;
+  transition: background 0.2s;
+}
+
+.signal-card:hover {
+  /* transform is handled by useTilt via JS — no CSS transform here */
+}
+
+.signal-card-buy {
+  border-color: rgba(0, 230, 118, 0.20);
+  box-shadow: 0 0 20px rgba(0, 230, 118, 0.06);
+}
+.signal-card-buy::before { background: var(--signal-buy); }
+.signal-card-buy:hover {
+  box-shadow: 0 8px 32px rgba(0, 230, 118, 0.15);
+  border-color: rgba(0, 230, 118, 0.35);
+}
+
+.signal-card-sell {
+  border-color: rgba(255, 61, 113, 0.20);
+  box-shadow: 0 0 20px rgba(255, 61, 113, 0.06);
+}
+.signal-card-sell::before { background: var(--signal-sell); }
+.signal-card-sell:hover {
+  box-shadow: 0 8px 32px rgba(255, 61, 113, 0.15);
+  border-color: rgba(255, 61, 113, 0.35);
+}
+
+.signal-card-hold {
+  border-color: rgba(255, 201, 64, 0.20);
+  box-shadow: 0 0 20px rgba(255, 201, 64, 0.06);
+}
+.signal-card-hold::before { background: var(--signal-hold); }
+.signal-card-hold:hover {
+  box-shadow: 0 8px 32px rgba(255, 201, 64, 0.15);
+  border-color: rgba(255, 201, 64, 0.35);
+}
+
+.signal-card-none {
+  border-color: var(--border-color);
+}
+.signal-card-none::before { background: var(--border-color); }
+
+.signal-card-ticker {
+  font-size: 13px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-muted);
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  margin-bottom: 8px;
+}
+
+/* Specular shine overlay — position driven by --shine-x / --shine-y CSS vars */
+.card-shine {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  pointer-events: none;
+  z-index: 2;
+  background: radial-gradient(
+    ellipse at var(--shine-x, 50%) var(--shine-y, 50%),
+    rgba(255, 255, 255, 0.10) 0%,
+    rgba(255, 255, 255, 0.04) 30%,
+    transparent 65%
+  );
+  opacity: 0;
+  transition: opacity 0.15s ease;
+}
+
+.signal-card:hover .card-shine {
+  opacity: 1;
+}
+
+.signal-card-signal {
+  font-size: 28px;
+  font-weight: 800;
+  letter-spacing: -0.5px;
+  margin-bottom: 16px;
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  line-height: 1;
+}
+
+.signal-card-metrics {
+  display: flex;
+  gap: 16px;
+  flex-wrap: wrap;
+}
+
+.metric-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.metric-label {
+  font-size: 10px;
+  font-weight: 600;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--text-muted);
+}
+
+.metric-value {
+  font-size: 14px;
+  font-weight: 600;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+}
+
+.signal-card-footer {
+  margin-top: 16px;
+  padding-top: 14px;
+  border-top: 1px solid var(--border-color);
+  font-size: 11px;
+  color: var(--text-muted);
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+/* ── Card Drawer ──────────────────────────────────────────────────── */
+
+.drawer-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 300;
+  background: rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+  animation: fade-in 0.2s ease both;
+}
+
+.drawer-panel {
+  position: fixed;
+  top: 64px;
+  right: 0;
+  bottom: 36px;
+  width: min(540px, 100vw);
+  z-index: 301;
+  background: var(--bg-surface);
+  border-left: 1px solid var(--border-color);
+  overflow-y: auto;
+  transform: translateX(100%);
+  transition: transform 0.32s cubic-bezier(0.4, 0, 0.2, 1);
+  display: flex;
+  flex-direction: column;
+}
+
+.drawer-panel.open {
+  transform: translateX(0);
+  box-shadow: -8px 0 40px rgba(0, 0, 0, 0.35);
+}
+
+.drawer-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 20px 24px 16px;
+  border-bottom: 1px solid var(--border-color);
+  flex-shrink: 0;
+  position: sticky;
+  top: 0;
+  background: var(--bg-surface);
+  z-index: 1;
+}
+
+.drawer-ticker {
+  font-size: 22px;
+  font-weight: 800;
+  font-family: 'JetBrains Mono', monospace;
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+}
+
+.drawer-body {
+  flex: 1;
+  padding: 20px 24px 32px;
+  display: flex;
+  flex-direction: column;
+  gap: 28px;
+}
+
+.drawer-section-title {
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.12em;
+  color: var(--text-muted);
+  margin-bottom: 14px;
+}
+
+/* ── Charts ───────────────────────────────────────────────────────── */
+
+.chart-wrapper {
+  background: var(--bg-card);
+  border: 1px solid var(--border-color);
+  border-radius: 14px;
+  padding: 16px;
+}
+
+/* ── News Items ───────────────────────────────────────────────────── */
+
+.news-list {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+
+.news-item {
+  padding: 14px 16px;
+  border-radius: 12px;
+  border: 1px solid var(--border-color);
+  background: var(--bg-card);
+  transition: border-color 0.2s, background 0.2s;
+}
+
+.news-item:hover {
+  border-color: var(--border-hover);
+  background: var(--bg-card-hover);
+}
+
+.news-item-top {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  margin-bottom: 8px;
+}
+
+.news-item-title {
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--text-primary);
+  line-height: 1.5;
+  flex: 1;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+.news-item-title:hover {
+  color: var(--accent);
+}
+
+.news-item-meta {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 11px;
+  color: var(--text-muted);
+}
+
+/* ── Sentiment Badges (inline) ────────────────────────────────────── */
+
+.badge-positive {
+  color: var(--signal-buy);
+  background: var(--signal-buy-dim);
+  border: 1px solid rgba(0,230,118,0.2);
+}
+.badge-negative {
+  color: var(--signal-sell);
+  background: var(--signal-sell-dim);
+  border: 1px solid rgba(255,61,113,0.2);
+}
+.badge-neutral {
+  color: var(--text-muted);
+  background: rgba(255,255,255,0.04);
+  border: 1px solid var(--border-color);
+}
+
+/* ── Empty State ──────────────────────────────────────────────────── */
+
+.empty-state {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  padding: 60px 24px;
+  text-align: center;
+  color: var(--text-muted);
+  gap: 12px;
+}
+
+.empty-state-icon {
+  color: var(--border-color);
+  margin-bottom: 4px;
+}
+
+.empty-state-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-secondary);
+}
+
+.empty-state-desc {
+  font-size: 14px;
+  max-width: 320px;
+  line-height: 1.6;
+}
+
+/* ── Hours Selector ───────────────────────────────────────────────── */
+
+.hours-btn {
+  padding: 6px 14px;
+  border-radius: 8px;
+  border: 1px solid var(--border-color);
+  background: transparent;
+  color: var(--text-secondary);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.hours-btn:hover, .hours-btn.active {
+  background: var(--accent-dim);
+  border-color: var(--accent);
+  color: var(--accent);
+}
+
+/* ── Market section ───────────────────────────────────────────────── */
+
+.market-section {
+  max-width: 1280px;
+  margin: 0 auto;
+  padding: 0 24px 48px;
+}
+
+.market-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-bottom: 28px;
+}
+
+.market-title {
+  font-size: 22px;
+  font-weight: 800;
+  color: var(--text-primary);
+}
+
+.market-subtitle {
+  font-size: 13px;
+  color: var(--text-muted);
+  margin-top: 4px;
+}
+
+.news-item-hover:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+  border-color: var(--accent-dim);
+}
+
+@keyframes spin-linear {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+.spin {
+  animation: spin-linear 1s linear infinite;
+}
+
+/* Stagger card animations */
+.signal-card-wrapper:nth-child(1) { animation-delay: 0ms; }
+.signal-card-wrapper:nth-child(2) { animation-delay: 60ms; }
+.signal-card-wrapper:nth-child(3) { animation-delay: 120ms; }
+.signal-card-wrapper:nth-child(4) { animation-delay: 180ms; }
+.signal-card-wrapper:nth-child(5) { animation-delay: 240ms; }
+
+/* ── Time display ─────────────────────────────────────────────────── */
+.last-updated {
+  font-size: 11px;
+  color: var(--text-muted);
+  font-family: 'JetBrains Mono', monospace;
+}
+
