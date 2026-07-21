@@ -73,6 +73,8 @@ class NewsClient:
         #In the except block: log the exception with logger.error, and return []
         except Exception as e:
             logger.error(e)
+            if "rateLimited" in str(e):
+                return None
             return []
 
         

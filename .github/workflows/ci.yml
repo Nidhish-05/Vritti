@@ -1,10 +1,10 @@
-name: Vritti CI/CD
+name: Vritti CI
 
 on:
   push:
-    branches: [main]
+    branches: [master-local]
   pull_request:
-    branches: [main]
+    branches: [master-local]
 
 jobs:
   # ── Lint ──────────────────────────────────────────────────────────────────────

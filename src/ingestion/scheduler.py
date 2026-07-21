@@ -6,6 +6,13 @@ from dotenv import load_dotenv
 from src.ingestion.news_client import NewsClient
 from src.ingestion.price_client import PriceClient
 from src.db.writer import insert_news_records, insert_price_ticks
+from src.processing import aggregator
+from src.processing.classifier import classify_pending_news
+from src.processing.aggregator import SentimentAggregator
+from src.processing.sentiment import SentimentPipeline
+from src.signals.generator import SignalGenerator
+from src.db.writer import insert_signal
+
 
 #Configure logging
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
@@ -97,7 +104,7 @@ WATCHLIST = {
 }
 
 
-async def price_polling_loop(pool, price_client: PriceClient):
+async def price_polling_loop(pool, price_client: PriceClient, generator: SignalGenerator):
     """
     Infinite loop that fetches prices for all tickers in WATCHLIST every 5 minutes.
     """
@@ -120,14 +127,31 @@ async def price_polling_loop(pool, price_client: PriceClient):
 
                         #Inserting tick in database
                         await insert_price_ticks(conn, ticks)
+                        
+                    # Sleep 12s to respect Polygon's 5 requests/minute free limit
+                    await asyncio.sleep(12)
 
                 except Exception as e:
                     logger.error(f"Failed to insert tick: {e}")
-                
-        #Wait for 5 min before next API request
-        await asyncio.sleep(300)
+            
+            for ticker in WATCHLIST:
+                try:
 
-async def news_polling_loop(pool, news_client: NewsClient):
+                    #Generating signals for the ticks
+                    signals = await generator.generate_signal(conn, ticker, window_hours=24)
+                
+                    if signals:
+
+                        #Inserting signals in database
+                        await insert_signal(conn, signals)
+
+                except Exception as e:
+                    logger.error(f"Failed to insert tick: {e}")
+
+        #Wait for 5 min before next API request
+        await asyncio.sleep(900)
+
+async def news_polling_loop(pool, news_client: NewsClient, pipeline: SentimentPipeline):
     """
     Infinite loop that fetches news headlines for all tickers in WATCHLIST every 15 minutes.
     """
@@ -147,6 +171,10 @@ async def news_polling_loop(pool, news_client: NewsClient):
                     #Fetching headlines
                     news_headlines = news_client.fetch_headlines(WATCHLIST.get(ticker), ticker)
                 
+                    if news_headlines is None:
+                        logger.warning("NewsAPI rate limit reached. Skipping remaining tickers for this cycle.")
+                        break
+
                     if news_headlines:
 
                         #Running query to insert news records in database
@@ -154,7 +182,15 @@ async def news_polling_loop(pool, news_client: NewsClient):
                 
                 except Exception as e:
                     logger.error(f"Failed to insert news article: {e}")
-        
+
+            try:
+
+                #Classifying the pending news
+                count = await classify_pending_news(conn, pipeline)
+                logger.info(f"Ran Classification for {count} Pending Articles")
+
+            except Exception as e:
+                logger.info(f"Error In Classification Of Pending News: {e}")
         #Wait for 15 minutes before next API request
         await asyncio.sleep(900)
 
@@ -176,13 +212,16 @@ async def main():
     #Instantiate the NewsClient and PriceClient.
     news_client = NewsClient(news_key)
     price_client = PriceClient(massive_key)
-    
+    pipeline = SentimentPipeline()
+    aggregator = SentimentAggregator()
+    generator = SignalGenerator(aggregator)
+
     #Create the asyncpg connection pool:
     pool = await asyncpg.create_pool(host=db_host, port=db_port, user=db_user, password=db_password, database=db_name)
     
     #Run both loops concurrently.
     try:
-        await asyncio.gather(price_polling_loop(pool, price_client), news_polling_loop(pool, news_client))
+        await asyncio.gather(price_polling_loop(pool, price_client, generator), news_polling_loop(pool, news_client, pipeline))
     except Exception as e:
         logger.error(e)
     
