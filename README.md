@@ -199,53 +199,34 @@ All endpoints are documented interactively at **`http://localhost:8000/docs`** (
 
 ## Local Setup
 
-**Prerequisites:** Python 3.11+, Node.js 20+, Docker Desktop, Conda
+**Prerequisites:** Node.js 20+, Docker Desktop
 
 ```bash
 # 1. Clone the repository (master-local branch for full version)
 git clone -b master-local https://github.com/Nidhish-05/Vritti.git
 cd Vritti
 
-# 2. Create & activate conda environment
-conda create -n vritti python=3.11
-conda activate vritti
-
-# 3. Install Python dependencies
-pip install -r requirements.txt
-
-# 4. Configure environment variables
+# 2. Configure environment variables
 cp .env.example .env
 # Edit .env — add your NEWS_API_KEY and POLYGON_API_KEY
 
-# 5. Start TimescaleDB (Docker)
-docker-compose up -d
+# 3. Start the Backend Infrastructure (Database, API, Scheduler)
+docker-compose up -d --build
 
-# 6. Initialise the database schema (run once)
-# Connect to the DB and execute sql/init.sql
-
-# 7. Start the FastAPI backend  [Terminal 1]
-python -m uvicorn src.api.main:app --reload
 # → API:     http://localhost:8000
 # → Swagger: http://localhost:8000/docs
+# 
+# Note: The database will automatically initialize. The scheduler will run 
+# the ingestion, FinBERT classification, and signal generation continuously in the background.
 
-# 8. Start the ingestion pipeline  [Terminal 2]
-python -m src.ingestion.scheduler
-# Fetches news every 15min, prices every 5min — let this run
-
-# 9. Run FinBERT classifier  [Terminal 3 — run periodically or after scheduler cycles]
-python -m src.processing.classifier
-
-# 10. Generate signals  [Terminal 4 — run periodically]
-python -m src.signals.generator
-
-# 11. Start the React frontend  [Terminal 5]
+# 4. Start the React frontend
 cd frontend
 npm install
 npm run dev
 # → Dashboard: http://localhost:5173
 ```
 
-> **First-time data note:** After starting the scheduler (step 8), wait at least one full cycle (~15 minutes) before running the classifier and signal generator. The dashboard will show empty states until the first batch of data flows through the pipeline.
+> **First-time data note:** After starting the containers, wait at least one full cycle (~15 minutes) for the scheduler to fetch data, run the FinBERT classifier, and generate signals. The dashboard will show empty states until the first batch of data flows through the pipeline.
 
 ---
 
@@ -259,7 +240,7 @@ npm run dev
 | Phase 4 — Aggregation & Signal Logic | master-local | ✅ Complete | EWMA aggregation, 5-period momentum, signal generator |
 | Phase 5 — FastAPI Backend | master-local | ✅ Complete | Connection pool, CORS, all REST routes |
 | Phase 6 — React Dashboard | master-local | ✅ Complete | 3D tilt cards, charts, news feed, dark/light mode, 50-ticker watchlist |
-| Phase 7 — CI/CD + Docker Compose | master-local | ⏳ In Progress | Dockerfile, full docker-compose, GitHub Actions CI workflow |
+| Phase 7 — CI/CD + Docker Compose | master-local | ✅ Complete | Dockerfile, full docker-compose, GitHub Actions CI workflow |
 | Phase 8 — Cloud Deployment | master-cloud | ⏳ Planned | Vercel + Render + Neon, master-cloud branch setup, GitHub Actions CD |
 
 ---
