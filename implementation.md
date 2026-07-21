@@ -4,74 +4,94 @@
 
 ---
 
+## Branch Strategy
+
+```
+vritti/
+├── master            → original working branch (all Phase 1-6 history)
+├── master-local      → full local version (source of truth, 50 tickers, TimescaleDB)
+└── master-cloud      → stripped demo version (10 tickers, Neon PostgreSQL, Vercel + Render)
+```
+
+### Branch Creation (Run Once)
+
+```bash
+git checkout -b master-local
+git push origin master-local
+
+git checkout master
+git checkout -b master-cloud
+git push origin master-cloud
+
+git checkout master-local   # return here for all development work
+```
+
+### What Differs Between Branches
+
+| File | master-local | master-cloud |
+|---|---|---|
+| `sql/init.sql` | TimescaleDB extension + 3× `create_hypertable()` | Those lines removed (standard PostgreSQL for Neon) |
+| `src/ingestion/scheduler.py` | 50 tickers | 10 tickers |
+| Database | Local TimescaleDB Docker | Neon.tech serverless PostgreSQL |
+| API | Local uvicorn | Render Web Service |
+| Frontend | Vite dev server | Vercel (auto-deploy) |
+
+---
+
 ## Architecture Decisions
 
 ### Why TimescaleDB?
-Hypertables partition `news_sentiment`, `price_ticks`, and `signals` on their time columns. At scale (months of 50-ticker data), this reduces range queries from O(full scan) to O(partition). Schema uses standard SQL otherwise — TimescaleDB is a pure performance layer.
+Hypertables partition `news_sentiment`, `price_ticks`, `signals` on their time columns. At scale, this reduces range queries from O(full scan) to O(partition). Standard SQL otherwise. Not available on Neon → hence the branch split.
 
 ### Why asyncpg over SQLAlchemy?
-Raw async PostgreSQL driver. Lower overhead for the high-frequency batch insert workload (hundreds of rows per poll cycle). All DB functions are plain async Python taking a connection parameter — simple, testable, no ORM magic.
+Raw async PostgreSQL driver. Lower overhead for high-frequency batch inserts. All DB functions are plain async Python — no ORM magic.
 
 ### Why FastAPI?
-Native async, auto-generated Swagger docs, Pydantic validation. Industry standard for ML serving APIs. Matches the async nature of the ingestion and DB layers.
+Native async, auto-generated Swagger docs, Pydantic validation. Industry standard for ML serving APIs.
 
-### Why FinBERT over general sentiment models?
-`ProsusAI/finbert` is trained on financial corpora. General models (VADER, TextBlob) misclassify finance-specific language. *"Apple beats earnings estimates"* scores ambiguous in VADER, strongly positive in FinBERT. Domain specificity is the value.
+### Why FinBERT (`ProsusAI/finbert`) over general sentiment models?
+Trained on financial corpora. General models misclassify finance language. Needs ~1.5–2GB RAM — free cloud tiers cap at 512MB. Manual local schedule → push to cloud DB is the V1 workaround.
 
 ### Why React + Vite over Streamlit?
-Streamlit cannot produce the 3D physics-based card effects, glassmorphic design, or live ticker marquee that make this project visually distinctive. React + Vite produces a real SPA deployable to Vercel. Vanilla CSS was chosen over Tailwind for full control over the custom design system.
+Cannot produce 3D physics card effects, glassmorphism, or live ticker marquee. Vanilla CSS over Tailwind for full control of the custom design system.
+
+### NewsAPI Rate Limit Strategy
+Free tier = 100 req/day. `master-cloud` reduces to 10 tickers. `master-local` uses compound OR queries to cover 50 tickers across fewer requests.
 
 ---
 
-## Notable Bugs Found & Fixed
+## Notable Bugs Fixed
 
 | Bug | Root Cause | Fix |
 |---|---|---|
-| 500 on `/signals/{ticker}` | `reader.py` dereferenced `rows` (list) instead of `rows[0]` (first record) | Corrected indexing |
-| React white screen on load | `useTilt()` hook called after early return — violates Rules of Hooks | Moved hook call to top of component |
-| React white screen on load | `Github` / `Linkedin` not exported by `lucide-react v1.x` | Replaced with inline SVG paths |
-| PostCSS CSS `@import` error | Google Fonts `@import url()` placed after `@import "tailwindcss"` | Moved Google Fonts import to line 1 in `index.css` |
-| Network Error / CORS on all API calls | Vite proxy only watched `/api` prefix; Axios baseURL was `localhost:8000` directly | Fixed proxy to intercept `/signals`, `/prices`, `/sentiment` prefixes; set Axios baseURL to `''` |
-
----
-
-## Watchlist (50 Tickers)
-
-Expanded from 3 → 50 in `src/ingestion/scheduler.py`.
-
-**NewsAPI Rate Limit Note:** Free tier = 100 req/day. At 50 tickers × 1 req × 96 polls/day = 4,800 req — far over limit. Mitigation: throttle to 2 batched queries per 15-min cycle using compound `OR` queries. Each query covers ~25 tickers semantically.
+| 500 on `/signals/{ticker}` | `reader.py` dereferenced `rows` (list) instead of `rows[0]` | Corrected indexing |
+| React white screen | `useTilt()` hook called after early return — violates Rules of Hooks | Moved hook to top of component |
+| React white screen | `Github`/`Linkedin` not exported by `lucide-react v1.x` | Replaced with inline SVGs |
+| PostCSS `@import` error | Google Fonts `@import url()` after `@import "tailwindcss"` | Moved Google Fonts to line 1 |
+| Network Error / CORS | Vite proxy watched `/api`; Axios baseURL was `localhost:8000` | Fixed proxy prefixes; Axios baseURL set to `''` |
 
 ---
 
 ## Deployment Pathways
 
-Three options were evaluated. Choose based on your goal at the time.
+### Option 1 — Full Local (`master-local`)
+Everything on your machine. Zero cost, full FinBERT capacity, TimescaleDB. No public URL.
 
-### Option 1 — Full Local (Current State)
-Everything runs on your machine. Docker + uvicorn + scheduler + FinBERT + Vite dev server. Zero cost, zero setup, best for development. No public URL.
+### Option 2 — Hybrid Free Cloud (`master-cloud`)
+- Frontend: Vercel (auto-deploy from master-cloud)
+- API: Render (512MB free, sleeps after 15min)
+- DB: Neon.tech (500MB free PostgreSQL)
+- FinBERT: Runs locally on manual schedule, writes to Neon DB
+- **Schema change required:** Remove `CREATE EXTENSION IF NOT EXISTS timescaledb` and the three `create_hypertable()` calls from `sql/init.sql`
 
-### Option 2 — Hybrid Free Cloud
-- **Frontend:** Vercel (free, auto-deploys from GitHub push)
-- **API:** Render (free 512MB Web Service)
-- **Database:** Neon.tech (free 500MB serverless PostgreSQL)
-- **Ingestion + FinBERT:** Still runs locally, writes to Neon DB
+### Option 3 — Full Production (V2 target)
+- Frontend: Vercel
+- API: Railway
+- DB: Neon
+- FinBERT: Modal.com (serverless GPU, $30/month free credit)
+- CI/CD: GitHub Actions cron (runs ingestion + FinBERT every 6h automatically)
 
-**Schema change required:** Remove `CREATE EXTENSION IF NOT EXISTS timescaledb` and the three `SELECT create_hypertable(...)` calls from `sql/init.sql`. Tables are standard PostgreSQL — no functional change.
-
-**Result:** Live public URL at zero cost. Data freshness depends on running the local pipeline periodically.
-
-### Option 3 — Full Production (Maximum Resume Value)
-- **Frontend:** Vercel (CDN, auto-deploy)
-- **API:** Railway.app (always-on FastAPI)
-- **Database:** Neon.tech (serverless PostgreSQL)
-- **FinBERT Inference:** Modal.com (serverless GPU functions — free $30/month credit, enough for this workload)
-- **Scheduler/CI:** GitHub Actions cron (runs ingestion + FinBERT every 6h automatically, free 2000 min/month)
-
-**Why Modal.com is the right call for FinBERT:** FinBERT needs ~1.5–2GB RAM. Free cloud tiers cap at 512MB. Modal spins up a serverless container with sufficient memory on demand, runs inference, and scales to zero. You pay ~$0.002/day at this volume.
-
-**LinkedIn talking point:** *"Deployed a serverless ML inference pipeline for financial NLP using Modal, automated via GitHub Actions, serving a React SPA from Vercel with a FastAPI backend."*
-
-**Cost:** Effectively $0/month across all services on free tiers.
+Do not introduce Modal.com until V2.
 
 ---
 
@@ -80,14 +100,14 @@ Everything runs on your machine. Docker + uvicorn + scheduler + FinBERT + Vite d
 | Version | Core Feature | Tech Addition |
 |---|---|---|
 | V1 (current) | FinBERT news sentiment → BUY/HOLD/SELL | FastAPI + React + TimescaleDB |
-| V2 | LSTM price-trend model + IPO watchlist + Risk calculator | PyTorch, SEC EDGAR API |
+| V2 | LSTM price-trend model + IPO watchlist + Risk calculator | PyTorch, SEC EDGAR API, Modal.com |
 | V3 | Education platform + GenAI report generator (SaaS) | LLM API, Auth, Stripe |
 
 ---
 
 ## Current Status at Last Commit
 
-**Complete:** Phases 1–6 (backend pipeline + React frontend)  
-**Pending:** Phase 7 (CI/CD + Docker Compose), Phase 8 (Cloud deployment)  
-**Watchlist:** 50 tickers across 8 sectors  
-**Frontend:** Builds clean, Vite proxy correctly routing to FastAPI, all pages functional
+**Complete:** Phases 1–6 (backend pipeline + React frontend)
+**Pending:** Phase 7 (CI/CD + Docker Compose on master-local), Phase 8 (cloud deployment on master-cloud)
+**Watchlist:** 50 tickers on master-local, 10 tickers on master-cloud
+**Frontend:** Builds clean, Vite proxy routing correctly, all pages functional
