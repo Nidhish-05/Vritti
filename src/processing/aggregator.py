@@ -4,7 +4,6 @@ import pandas as pd
 from datetime import UTC, date, datetime, timedelta, timezone
 
 from pandas import cut
-from pytz import utc
 
 logger = logging.getLogger(__name__)
 
@@ -50,7 +49,7 @@ class SentimentAggregator:
         #    - computed_at as the current UTC time.
         if not rows:
             logger.error("Couldn't fetch rows")
-            return {'ticker': ticker, 'window_hours': window_hours, 'weighted_score': 0, 'article_count': 0, 'computed_at': datetime.now(timezone=utc)} 
+            return {'ticker': ticker, 'window_hours': window_hours, 'weighted_score': 0, 'article_count': 0, 'computed_at': datetime.now(timezone.utc)}
         
         #Extract values and convert the fetched rows to a list of dicts.
         list_of_dicts = []

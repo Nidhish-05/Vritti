@@ -1,9 +1,6 @@
 import logging
-from aiohttp.pytest_plugin import loop
 import asyncpg
 from datetime import datetime, timezone
-
-from numpy.ma import count
 
 logger = logging.getLogger(__name__)
 

@@ -34,6 +34,8 @@ logger = logging.getLogger(__name__)
 # ──────────────────────────────────────────────────────────────────────────────
 
 WATCHLIST = {
+    # TODO (Phase 8 Cloud): Trim this dictionary down to just 10 representative tickers
+    # to avoid hitting NewsAPI (100 req/day) and Polygon free-tier rate limits.
     # ── Big Tech ──────────────────────────────────────────────────────────────
     "AAPL":  "Apple Inc OR AAPL OR iPhone OR Tim Cook",
     "MSFT":  "Microsoft OR MSFT OR Azure OR Satya Nadella",
@@ -110,6 +112,8 @@ async def price_polling_loop(pool, price_client: PriceClient, generator: SignalG
     """
     logger.info("Starting Price Polling Loop...")
     
+    # TODO (Phase 8 Cloud): Remove this infinite `while True:` loop and its sleep delay (line 152)
+    # so that the scheduler functions as a single-run job for manual/cron execution.
     #Start an infinite loop
     while True:
 
@@ -157,6 +161,8 @@ async def news_polling_loop(pool, news_client: NewsClient, pipeline: SentimentPi
     """
     logger.info("Starting News Polling Loop...")
 
+    # TODO (Phase 8 Cloud): Remove this infinite `while True:` loop and its sleep delay (line 195)
+    # so that the scheduler functions as a single-run job for manual/cron execution.
     #Start an infinite loop
     while True:
 

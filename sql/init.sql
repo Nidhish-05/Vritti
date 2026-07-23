@@ -14,7 +14,7 @@
 -- 3) The time published_at is the time dimension because it is unique for each news, and more importantly, it forms the basis of the news' timeline as it specifies how old the news is. This will come in handy when analysing the relation between the news and the stock price.
 -- =============================================================================
 -- Enable TimescaleDB extension
-
+-- TODO (Phase 8 Cloud): Remove this extension because Neon.tech standard PostgreSQL doesn't support it.
 CREATE EXTENSION IF NOT EXISTS timescaledb;
 
 -- =============================================================================
@@ -79,6 +79,7 @@ CREATE TABLE signals(
 
 -- =============================================================================
 -- Convert tables to TimescaleDB hypertables
+-- TODO (Phase 8 Cloud): Delete these three `create_hypertable` statements since Neon doesn't support them.
 -- TODO: Call select create_hypertable(...) for each of the three tables above
 -- Read: https://docs.timescale.com/api/latest/hypertable/create_hypertable/
 -- =============================================================================
