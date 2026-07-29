@@ -241,8 +241,7 @@ npm run dev
 | Phase 5 — FastAPI Backend | master-local | ✅ Complete | Connection pool, CORS, all REST routes |
 | Phase 6 — React Dashboard | master-local | ✅ Complete | 3D tilt cards, charts, news feed, dark/light mode, 50-ticker watchlist |
 | Phase 7 — CI/CD + Docker Compose | master-local | ✅ Complete | Dockerfile, full docker-compose, GitHub Actions CI workflow |
-| Phase 8 — Cloud Deployment | master-cloud | ⏳ Planned | Vercel + Render + Neon, master-cloud branch setup, GitHub Actions CD |
-
+| Phase 8 — Cloud Deployment | master-cloud | ✅ Complete | Vercel + Render + Neon, master-cloud branch setup, API locked CORS |
 ---
 
 ## Versioning Roadmap
@@ -257,8 +256,12 @@ npm run dev
 
 ## What I Learned
 
-> *To be written honestly after Phase 8 is complete. Will cover: building async Python data pipelines from scratch, working with TimescaleDB hypertables, integrating FinBERT (a domain-specific transformer model) into a production ingestion loop, designing REST APIs with FastAPI, building a React frontend with custom 3D physics-based UI mechanics, and making real architectural tradeoffs between local capability and cloud deployability.*
-
+Building Vritti was a deep dive into full-stack ML engineering. Transitioning from a Python-heavy ML focus to an end-to-end distributed system presented unique challenges:
+1. **Concurrency and Scaling:** Building the ingestion layer from scratch with `asyncio` and `asyncpg` highlighted the importance of non-blocking I/O. I learned how to carefully manage database connection pools and API rate limits (like NewsAPI's strict 100/day limit) without crashing the pipeline.
+2. **Time-Series Data:** Utilizing TimescaleDB hypertables locally taught me the value of database partitioning for high-frequency financial data, ensuring that range queries remain fast as the dataset grows.
+3. **ML in Production:** Integrating `ProsusAI/finbert` wasn't just about calling `model.predict()`. It required handling batching, mapping output tensors to SQL types, and managing the harsh reality of RAM constraints (~1.5GB needed) which ultimately drove the architectural split between the local processing and the cloud deployment.
+4. **Cloud Trade-offs:** Phase 8 was a masterclass in compromise. Stripping down the local 50-ticker TimescaleDB monolith into a 10-ticker serverless stack (Vercel + Render + Neon) proved that architecture is often dictated by deployment constraints and cost, not just code capability.
+5. **Modern Frontend:** Writing custom CSS for 3D physics-based floating cards and integrating Recharts in React 18 bridged the gap between raw data and actionable, engaging user interfaces.
 ---
 
 ## Author
