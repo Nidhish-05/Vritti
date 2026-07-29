@@ -13,6 +13,13 @@ from dotenv import load_dotenv
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
+# Read allowed origins from env var (comma-separated).
+# On Render: set ALLOWED_ORIGINS=https://your-app.vercel.app
+# Locally:   leave unset or set to * for unrestricted dev access.
+def _get_allowed_origins() -> list[str]:
+    raw = os.getenv("ALLOWED_ORIGINS", "*")
+    return [o.strip() for o in raw.split(",") if o.strip()]
+
 #Async context manager function that takes the FastAPI app.
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -49,10 +56,13 @@ async def lifespan(app: FastAPI):
 app = FastAPI(lifespan=lifespan)
 
 #Add CORS middleware to the FastAPI app to allow cross-origin requests.
+# Origins are controlled by the ALLOWED_ORIGINS environment variable.
+allowed_origins = _get_allowed_origins()
+logger.info(f"CORS allowed origins: {allowed_origins}")
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=allowed_origins,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -6,7 +6,6 @@ from dotenv import load_dotenv
 from src.ingestion.news_client import NewsClient
 from src.ingestion.price_client import PriceClient
 from src.db.writer import insert_news_records, insert_price_ticks
-from src.processing import aggregator
 from src.processing.classifier import classify_pending_news
 from src.processing.aggregator import SentimentAggregator
 from src.processing.sentiment import SentimentPipeline
@@ -18,242 +17,195 @@ from src.db.writer import insert_signal
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-# ── Rate Limit Budget ────────────────────────────────────────────────────────
-# NewsAPI free tier: 100 requests/day (resets every 24h)
-# We cap at 40 per session cycle to leave a safety buffer for re-runs.
-# The news loop sleeps 12 hours between cycles, giving 2 cycles/day = 80 requests max.
+# ── Rate Limit Budget ─────────────────────────────────────────────────────────
+# NewsAPI free tier: 100 requests/day.
+# This cloud version uses 10 tickers — 1 request per ticker = 10 requests/run.
+# Running this script up to 8 times/day stays well under the 100/day limit.
 #
 # Polygon (Massive) free tier: 5 requests/minute.
-# The price loop sleeps 12s between each ticker request (= 5 req/min exactly).
-# After all 50 tickers, it sleeps 15 minutes before the next full cycle.
-# ──────────────────────────────────────────────────────────────────────────────
-NEWS_REQUESTS_PER_CYCLE = 40  # Hard cap per 12-hour cycle
+# We sleep 12s between each ticker request (= 5 req/min exactly).
+# ─────────────────────────────────────────────────────────────────────────────
 
+# ── Watchlist — 10 Representative Tickers ────────────────────────────────────
+# One ticker from each major sector. Deliberately trimmed from the 50-ticker
+# master-local version to stay within free-tier API limits on the cloud.
+# Format: "TICKER": "NewsAPI search query"
+# ─────────────────────────────────────────────────────────────────────────────
 WATCHLIST = {
-    # TODO (Phase 8 Cloud): Trim this dictionary down to just 10 representative tickers
-    # to avoid hitting NewsAPI (100 req/day) and Polygon free-tier rate limits.
-    # ── Big Tech ──────────────────────────────────────────────────────────────
+    # Big Tech
     "AAPL":  "Apple Inc OR AAPL OR iPhone OR Tim Cook",
-    "MSFT":  "Microsoft OR MSFT OR Azure OR Satya Nadella",
-    "GOOGL": "Alphabet OR Google OR GOOGL OR Sundar Pichai",
-    "META":  "Meta Platforms OR META OR Facebook OR Mark Zuckerberg",
-    "AMZN":  "Amazon OR AMZN OR AWS OR Andy Jassy",
+    # Semiconductors
     "NVDA":  "NVIDIA OR NVDA OR Jensen Huang OR GPU AI",
-    "TSLA":  "Tesla OR TSLA OR Elon Musk OR electric vehicle",
-    "ORCL":  "Oracle OR ORCL OR Larry Ellison OR cloud database",
-    "CRM":   "Salesforce OR CRM OR Marc Benioff OR SaaS",
-    "ADBE":  "Adobe OR ADBE OR Creative Cloud OR Firefly AI",
-
-    # ── Semiconductors ────────────────────────────────────────────────────────
-    "AMD":   "AMD OR Advanced Micro Devices OR Lisa Su OR Ryzen",
-    "INTC":  "Intel OR INTC OR Pat Gelsinger OR semiconductor",
-    "QCOM":  "Qualcomm OR QCOM OR Snapdragon OR 5G chip",
-    "AVGO":  "Broadcom OR AVGO OR semiconductor OR networking chip",
-    "TSM":   "TSMC OR TSM OR Taiwan Semiconductor OR chip foundry",
-
-    # ── Finance & Banking ─────────────────────────────────────────────────────
+    # Finance
     "JPM":   "JPMorgan OR JPM OR Jamie Dimon OR banking earnings",
-    "GS":    "Goldman Sachs OR GS OR investment banking",
-    "MS":    "Morgan Stanley OR MS OR wealth management",
-    "BAC":   "Bank of America OR BAC OR consumer banking",
-    "V":     "Visa OR payment network OR fintech earnings",
-
-    # ── EV & Clean Energy ─────────────────────────────────────────────────────
-    "RIVN":  "Rivian OR RIVN OR electric truck OR EV startup",
-    "LCID":  "Lucid Motors OR LCID OR luxury EV OR electric car",
-    "NIO":   "NIO OR Chinese EV OR electric vehicle China",
-    "ENPH":  "Enphase Energy OR ENPH OR solar microinverter",
-    "FSLR":  "First Solar OR FSLR OR solar panel OR clean energy",
-
-    # ── Consumer & Retail ─────────────────────────────────────────────────────
+    # EV & Clean Energy
+    "TSLA":  "Tesla OR TSLA OR Elon Musk OR electric vehicle",
+    # Consumer & Retail
     "NFLX":  "Netflix OR NFLX OR streaming OR Reed Hastings",
-    "DIS":   "Disney OR DIS OR Disney+ OR Bob Iger OR streaming",
-    "SBUX":  "Starbucks OR SBUX OR coffee OR Brian Niccol",
-    "NKE":   "Nike OR NKE OR athletic OR John Donahoe",
-    "MCD":   "McDonald's OR MCD OR fast food OR Chris Kempczinski",
-
-    # ── Healthcare & Biotech ──────────────────────────────────────────────────
-    "JNJ":   "Johnson and Johnson OR JNJ OR pharma OR medical device",
+    # Healthcare & Biotech
     "PFE":   "Pfizer OR PFE OR vaccine OR drug pipeline",
-    "MRNA":  "Moderna OR MRNA OR mRNA OR vaccine biotech",
-    "UNH":   "UnitedHealth OR UNH OR health insurance",
-    "ABBV":  "AbbVie OR ABBV OR Humira OR immunology drug",
-
-    # ── Cloud & Enterprise SaaS ───────────────────────────────────────────────
-    "NOW":   "ServiceNow OR NOW OR enterprise software OR workflow AI",
-    "SNOW":  "Snowflake OR SNOW OR data cloud OR data warehouse",
-    "DDOG":  "Datadog OR DDOG OR cloud monitoring OR observability",
-    "TEAM":  "Atlassian OR TEAM OR Jira OR developer tools",
-    "ZS":    "Zscaler OR ZS OR cybersecurity OR zero trust",
-
-    # ── Crypto-adjacent & Fintech ─────────────────────────────────────────────
+    # Cloud & SaaS
+    "MSFT":  "Microsoft OR MSFT OR Azure OR Satya Nadella",
+    # Crypto & Fintech
     "COIN":  "Coinbase OR COIN OR crypto exchange OR Bitcoin",
-    "PYPL":  "PayPal OR PYPL OR digital payments OR fintech",
-    "SQ":    "Block OR Square OR SQ OR Jack Dorsey OR fintech",
-    "HOOD":  "Robinhood OR HOOD OR retail investing OR commission-free",
-    "MSTR":  "MicroStrategy OR MSTR OR Bitcoin treasury OR Michael Saylor",
-
-    # ── Aerospace & Industrial ────────────────────────────────────────────────
+    # Aerospace & Industrial
     "BA":    "Boeing OR BA OR aerospace OR airline supply",
-    "LMT":   "Lockheed Martin OR LMT OR defense contract OR fighter jet",
-    "UBER":  "Uber OR UBER OR ride-hailing OR Dara Khosrowshahi",
-    "LYFT":  "Lyft OR LYFT OR ride-sharing OR gig economy",
-    "ABNB":  "Airbnb OR ABNB OR short-term rental OR travel platform",
+    # Emerging / High-growth
+    "GOOGL": "Alphabet OR Google OR GOOGL OR Sundar Pichai",
 }
 
 
-async def price_polling_loop(pool, price_client: PriceClient, generator: SignalGenerator):
+async def run_price_ingestion(conn, price_client: PriceClient, generator: SignalGenerator):
     """
-    Infinite loop that fetches prices for all tickers in WATCHLIST every 5 minutes.
+    Single-run: fetches price ticks for all 10 WATCHLIST tickers, inserts them
+    into the DB, then generates and stores trading signals.
+
+    Sleeps 12s between each Polygon request to respect the 5 req/min free limit.
     """
-    logger.info("Starting Price Polling Loop...")
-    
-    # TODO (Phase 8 Cloud): Remove this infinite `while True:` loop and its sleep delay (line 152)
-    # so that the scheduler functions as a single-run job for manual/cron execution.
-    #Start an infinite loop
-    while True:
+    logger.info("── Price Ingestion: starting ──")
 
-        #Starting the connection
-        async with pool.acquire() as conn:
+    for ticker in WATCHLIST:
+        try:
+            ticks = price_client.fetch_prices(ticker, days_back=2)
 
-            #Iterating through the WATCHLIST
-            for ticker in WATCHLIST:
-                try:
+            if ticks:
+                await insert_price_ticks(conn, ticks)
+                logger.info(f"[{ticker}] Inserted {len(ticks)} price ticks.")
 
-                    #Fetching prices for the ticker
-                    ticks = price_client.fetch_prices(ticker, days_back=2)
-                
-                    if ticks:
+            # 12s sleep = 5 requests/minute — exactly at Polygon free-tier limit
+            await asyncio.sleep(12)
 
-                        #Inserting tick in database
-                        await insert_price_ticks(conn, ticks)
-                        
-                    # Sleep 12s to respect Polygon's 5 requests/minute free limit
-                    await asyncio.sleep(12)
+        except Exception as e:
+            logger.error(f"[{ticker}] Price ingestion failed: {e}")
 
-                except Exception as e:
-                    logger.error(f"Failed to insert tick: {e}")
-            
-            for ticker in WATCHLIST:
-                try:
+    logger.info("── Price Ingestion: complete ──")
 
-                    #Generating signals for the ticks
-                    signals = await generator.generate_signal(conn, ticker, window_hours=24)
-                
-                    if signals:
+    logger.info("── Signal Generation: starting ──")
 
-                        #Inserting signals in database
-                        await insert_signal(conn, signals)
+    for ticker in WATCHLIST:
+        try:
+            signal = await generator.generate_signal(conn, ticker, window_hours=24)
+            if signal:
+                await insert_signal(conn, signal)
+                logger.info(f"[{ticker}] Signal: {signal.get('signal')} (sentiment={signal.get('sentiment_score'):.4f}, momentum={signal.get('momentum'):.4f})")
 
-                except Exception as e:
-                    logger.error(f"Failed to insert tick: {e}")
+        except Exception as e:
+            logger.error(f"[{ticker}] Signal generation failed: {e}")
 
-        #Wait for 5 min before next API request
-        await asyncio.sleep(900)
+    logger.info("── Signal Generation: complete ──")
 
-async def news_polling_loop(pool, news_client: NewsClient, pipeline: SentimentPipeline):
+
+async def run_news_ingestion(conn, news_client: NewsClient, pipeline: SentimentPipeline):
     """
-    Infinite loop that fetches news headlines for tickers in WATCHLIST.
-    
-    Rate limit strategy:
-    - NewsAPI free tier: 100 requests/day.
-    - We cap each cycle at NEWS_REQUESTS_PER_CYCLE (40) with a 1s sleep between
-      each request to avoid burst throttling.
-    - The loop sleeps 12 hours between cycles, giving at most 2 cycles/day = 80
-      requests total, safely within the 100/day limit.
+    Single-run: fetches news headlines for all 10 WATCHLIST tickers, inserts
+    them into the DB, then runs FinBERT classification on all pending articles.
+
+    Sleeps 1s between each NewsAPI request to avoid burst throttling.
+    10 tickers = 10 requests per run, safely within the 100/day free limit.
     """
-    logger.info("Starting News Polling Loop...")
+    logger.info("── News Ingestion: starting ──")
 
-    # TODO (Phase 8 Cloud): Remove this infinite `while True:` loop and its sleep delay
-    # so that the scheduler functions as a single-run job for manual/cron execution.
-    while True:
+    requests_used = 0
 
-        #Acquire a connection from the pool
-        async with pool.acquire() as conn:
+    for ticker in WATCHLIST:
+        try:
+            news_headlines = news_client.fetch_headlines(WATCHLIST.get(ticker), ticker)
+            requests_used += 1
 
-            requests_used = 0
+            if news_headlines is None:
+                logger.warning(f"[{ticker}] NewsAPI rate limit hit. Stopping news ingestion early.")
+                break
 
-            #Iterating for every ticker in WATCHLIST
-            for ticker in WATCHLIST:
+            if news_headlines:
+                await insert_news_records(conn, news_headlines)
+                logger.info(f"[{ticker}] Inserted {len(news_headlines)} news articles.")
 
-                # Hard cap: stop fetching if we've hit our per-cycle budget
-                if requests_used >= NEWS_REQUESTS_PER_CYCLE:
-                    logger.warning(f"NewsAPI budget reached ({NEWS_REQUESTS_PER_CYCLE} requests). Stopping news fetch for this cycle.")
-                    break
+            # 1s gap between requests to avoid burst throttling
+            await asyncio.sleep(1)
 
-                try:
+        except Exception as e:
+            logger.error(f"[{ticker}] News ingestion failed: {e}")
 
-                    #Fetching headlines
-                    news_headlines = news_client.fetch_headlines(WATCHLIST.get(ticker), ticker)
-                    requests_used += 1
+    logger.info(f"── News Ingestion: complete ({requests_used}/{len(WATCHLIST)} tickers fetched) ──")
 
-                    if news_headlines is None:
-                        logger.warning("NewsAPI rate limit reached. Stopping news fetch for this cycle.")
-                        break
+    logger.info("── FinBERT Classification: starting ──")
 
-                    if news_headlines:
+    try:
+        count = await classify_pending_news(conn, pipeline)
+        logger.info(f"── FinBERT Classification: complete ({count} articles classified) ──")
+    except Exception as e:
+        logger.error(f"FinBERT classification failed: {e}")
 
-                        #Running query to insert news records in database
-                        await insert_news_records(conn, news_headlines)
-
-                    # Sleep 1s between requests to avoid burst throttling
-                    await asyncio.sleep(1)
-
-                except Exception as e:
-                    logger.error(f"Failed to insert news article: {e}")
-
-            logger.info(f"News cycle complete. Requests used this cycle: {requests_used}/{NEWS_REQUESTS_PER_CYCLE}")
-
-            try:
-
-                #Classifying the pending news
-                count = await classify_pending_news(conn, pipeline)
-                logger.info(f"Ran Classification for {count} Pending Articles")
-
-            except Exception as e:
-                logger.info(f"Error In Classification Of Pending News: {e}")
-
-        # Sleep 12 hours before next cycle (2 cycles/day = 80 requests max, within 100/day limit)
-        logger.info("News loop sleeping for 12 hours before next cycle...")
-        await asyncio.sleep(43200)
 
 async def main():
-    
-    #Load secrets
+    """
+    Cloud scheduler entry point — single sequential run.
+
+    Execution order:
+      1. Connect to Neon PostgreSQL via ASYNC_DATABASE_URL
+      2. Fetch prices for all 10 tickers (12s between each → 5 req/min)
+      3. Generate BUY/HOLD/SELL signals and write to DB
+      4. Fetch news headlines (1s between each)
+      5. Run FinBERT classification on unscored articles
+      6. Close the pool and exit
+
+    Designed to be triggered by a cron job or manually — not an infinite loop.
+    On Render: deploy as a Background Worker or trigger via external cron.
+    Locally against Neon: run `python -m src.ingestion.scheduler` with ASYNC_DATABASE_URL set.
+    """
     load_dotenv()
-    
+
     news_key = os.getenv("NEWS_API_KEY")
     massive_key = os.getenv("MASSIVE_API_KEY")
-    
-    # DB configuration
-    db_host = os.getenv("DB_HOST", "localhost")
-    db_port = os.getenv("DB_PORT", "5432")
-    db_name = os.getenv("DB_NAME", "vritti_db")
-    db_user = os.getenv("DB_USER", "vritti")
-    db_password = os.getenv("DB_PASSWORD", "vritti_password")
+    db_string = os.getenv("ASYNC_DATABASE_URL")
 
-    #Instantiate the NewsClient and PriceClient.
+    if not db_string:
+        logger.error("ASYNC_DATABASE_URL is not set. Exiting.")
+        return
+
+    if not news_key:
+        logger.warning("NEWS_API_KEY is not set. News ingestion will fail.")
+
+    if not massive_key:
+        logger.warning("MASSIVE_API_KEY is not set. Price ingestion will fail.")
+
+    #Instantiate clients and pipeline
     news_client = NewsClient(news_key)
     price_client = PriceClient(massive_key)
     pipeline = SentimentPipeline()
-    aggregator = SentimentAggregator()
-    generator = SignalGenerator(aggregator)
+    aggregator_instance = SentimentAggregator()
+    generator = SignalGenerator(aggregator_instance)
 
-    #Create the asyncpg connection pool:
-    pool = await asyncpg.create_pool(host=db_host, port=db_port, user=db_user, password=db_password, database=db_name)
-    
-    #Run both loops concurrently.
+    logger.info("Connecting to Neon PostgreSQL...")
+
     try:
-        await asyncio.gather(price_polling_loop(pool, price_client, generator), news_polling_loop(pool, news_client, pipeline))
+        pool = await asyncpg.create_pool(dsn=db_string)
     except Exception as e:
-        logger.error(e)
-    
-    #Ensure the pool is closed if the scheduler is stopped.
+        logger.error(f"Failed to connect to database: {e}")
+        return
+
+    logger.info("Connected. Starting single-run ingestion cycle.")
+
+    try:
+        async with pool.acquire() as conn:
+            # Step 1: Price ingestion + signal generation
+            await run_price_ingestion(conn, price_client, generator)
+
+            # Step 2: News ingestion + FinBERT classification
+            await run_news_ingestion(conn, news_client, pipeline)
+
+        logger.info("Ingestion cycle complete. Exiting.")
+
+    except Exception as e:
+        logger.error(f"Unexpected error during ingestion cycle: {e}")
+
     finally:
         await pool.close()
+        logger.info("Database pool closed.")
+
 
 if __name__ == "__main__":
     try:
         asyncio.run(main())
     except KeyboardInterrupt:
-        logger.info("Scheduler stopped by user.")
+        logger.info("Scheduler interrupted by user.")
