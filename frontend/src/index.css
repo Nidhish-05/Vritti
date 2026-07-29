@@ -10,11 +10,12 @@
 
 :root[data-theme="dark"],
 :root {
-  --bg-primary:      #04080f;
-  --bg-surface:      #0a1628;
-  --bg-card:         #0f1f38;
-  --bg-card-hover:   #162d4a;
-  --bg-input:        #0d1e35;
+  --bg-primary:      #000000;
+  --bg-surface:      #040a14;
+  --bg-card:         #081222;
+  --bg-card-hover:   #0d1e35;
+  --bg-input:        #06101c;
+  --bg-gradient:     radial-gradient(circle at 50% 0%, #0a204a 0%, #000000 80%);
 
   --border-color:    rgba(0, 180, 255, 0.10);
   --border-hover:    rgba(0, 198, 255, 0.30);
@@ -107,6 +108,7 @@ html {
 
 body {
   background-color: var(--bg-primary);
+  background-image: var(--bg-gradient, none);
   color: var(--text-primary);
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
@@ -419,7 +421,7 @@ body {
   display: flex;
   align-items: center;
   width: max-content;
-  animation: marquee-scroll 35s linear infinite;
+  animation: marquee-scroll 80s linear infinite;
   gap: 0;
 }
 
