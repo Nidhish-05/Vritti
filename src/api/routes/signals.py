@@ -27,7 +27,8 @@ async def get_all_signal_endpoint(req: Request):
         
         except Exception as e:
             
-            #Raising exception if all_signals is empty
+            #Log the actual error and raise HTTP 500
+            logger.error(f"Error in /signals/all: {e}")
             raise HTTPException(status_code=500, detail="Error Fetching Data")
 
 #Route 2: Getting Latest Signal For A Ticker
@@ -51,6 +52,6 @@ async def get_latest_signal_endpoint(ticker: str, req: Request):
                 raise HTTPException(status_code=404, detail="Error Fetching Data For Ticker")
         
         except Exception as e:
-        
+            logger.error(f"Error in /signals/{ticker}: {e}")
             raise HTTPException(status_code=500, detail="Error Fetching Data For Ticker")
     

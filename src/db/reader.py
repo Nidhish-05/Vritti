@@ -47,8 +47,7 @@ async def get_all_signals(conn) -> list[dict]:
     rows = await conn.fetch(query)
 
     #Convert and return the fetched rows as a list of dictionaries.
-    if rows:
-        return [dict(row) for row in rows]
+    return [dict(row) for row in rows] if rows else []
 
 async def get_sentiment_history(conn, ticker: str, hours: int) -> list[dict]:
     """
