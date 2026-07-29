@@ -63,8 +63,8 @@ class PriceClient:
             #Check if the "results" key is present in the response dictionary.
             if not results:
 
-                #If not, or if the list is empty, log a warning and return [].
-                logger.error("Empty list received")
+                #If not, or if the list is empty, log a debug message and return [].
+                logger.debug(f"[{ticker}] No price data received (market may be closed).")
                 return []
             else:
         
