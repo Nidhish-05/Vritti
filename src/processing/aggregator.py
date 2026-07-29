@@ -48,7 +48,7 @@ class SentimentAggregator:
         #    - article_count as 0
         #    - computed_at as the current UTC time.
         if not rows:
-            logger.error("Couldn't fetch rows")
+            logger.debug(f"No classified articles found for {ticker} in the last {window_hours}h window. Returning zero sentiment.")
             return {'ticker': ticker, 'window_hours': window_hours, 'weighted_score': 0, 'article_count': 0, 'computed_at': datetime.now(timezone.utc)}
         
         #Extract values and convert the fetched rows to a list of dicts.
@@ -77,28 +77,27 @@ class SentimentAggregator:
             list_of_dicts.append(r_dict)
 
         #Convert the list of dicts into a Pandas DataFrame.
-        df = pd.DataFrame(list_of_dicts) 
-        
-        #Set the DataFrame's index to be the published_at timestamps.
-        df = df.set_index('published_at') 
-        
-        #Apply the Exponential Moving Average (.ewm) calculation on the 
-        #    numerical sentiment column.
-        ewma_series = df['sentiment_label'].ewm(halflife=0.4*window_hours).mean()
+        try:
+            df = pd.DataFrame(list_of_dicts) 
+            
+            #Set the DataFrame's index to be the published_at timestamps.
+            df = df.set_index('published_at') 
+            
+            #Apply the Exponential Moving Average (.ewm) calculation on the 
+            #    numerical sentiment column.
+            ewma_series = df['sentiment_label'].ewm(halflife=0.4*window_hours).mean()
 
-        #Extract the very last value of the calculated EWMA series.
-        row_dict = {
-                'ticker': ticker,
-                'window_hours': window_hours,
-                'weighted_score': float(ewma_series.iloc[-1]),
-                'article_count': len(list_of_dicts),
-                'computed_at': datetime.now(timezone.utc)
-            }
-        
-        #Return a dictionary containing:
-        #     - ticker
-        #     - window_hours
-        #     - weighted_score (the extracted float value)
-        #     - article_count (the number of articles in the DataFrame)
-        #     - computed_at (current UTC time)
-        return row_dict
+            #Extract the very last value of the calculated EWMA series.
+            row_dict = {
+                    'ticker': ticker,
+                    'window_hours': window_hours,
+                    'weighted_score': float(ewma_series.iloc[-1]),
+                    'article_count': len(list_of_dicts),
+                    'computed_at': datetime.now(timezone.utc)
+                }
+            
+            return row_dict
+
+        except Exception as e:
+            logger.error(f"Error computing EWMA for {ticker}: {e}")
+            return {'ticker': ticker, 'window_hours': window_hours, 'weighted_score': 0, 'article_count': 0, 'computed_at': datetime.now(timezone.utc)}

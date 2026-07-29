@@ -1,5 +1,4 @@
 import logging
-from sys import exception
 from newsapi import NewsApiClient
 import json
 logger = logging.getLogger(__name__)

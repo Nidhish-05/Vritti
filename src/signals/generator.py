@@ -1,6 +1,5 @@
 import logging
 from datetime import datetime, timezone
-from src.processing import aggregator
 from src.processing.aggregator import SentimentAggregator
 
 logger = logging.getLogger(__name__)
@@ -41,16 +40,20 @@ class SignalGenerator:
         rows = await conn.fetch(query, ticker, min_ticks_required)
 
         #Guard Clause: If there are not enough ticks to calculate momentum, return 0.0.
-        if len(rows)< min_ticks_required:
-            momentum = 0.0
-            return momentum
+        if len(rows) < min_ticks_required:
+            return 0.0
         
         #Extract the most recent close price and the oldest close price from the fetched rows.
         latest_cp = rows[0].get('price_close')
         oldest_cp = rows[-1].get('price_close')
+
+        #Guard: avoid division by zero if oldest price is somehow 0
+        if not oldest_cp or oldest_cp == 0:
+            logger.warning(f"Oldest close price for {ticker} is zero or None; returning momentum=0.0")
+            return 0.0
         
         #Calculate the percentage change (momentum) as a float.
-        momentum = float(((latest_cp - oldest_cp)/oldest_cp) *100)
+        momentum = float(((latest_cp - oldest_cp) / oldest_cp) * 100)
         
         #Return the calculated momentum
         return momentum

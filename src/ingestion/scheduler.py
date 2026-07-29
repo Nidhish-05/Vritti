@@ -18,20 +18,16 @@ from src.db.writer import insert_signal
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 logger = logging.getLogger(__name__)
 
-# ── Watchlist ──────────────────────────────────────────────────────────────────
-# Format: "TICKER": "NewsAPI search query"
+# ── Rate Limit Budget ────────────────────────────────────────────────────────
+# NewsAPI free tier: 100 requests/day (resets every 24h)
+# We cap at 40 per session cycle to leave a safety buffer for re-runs.
+# The news loop sleeps 12 hours between cycles, giving 2 cycles/day = 80 requests max.
 #
-# NEWS BATCHING STRATEGY (important for free tier):
-#   NewsAPI free plan = 100 requests/day.
-#   Rather than 1 request per ticker, several tickers share one query using OR.
-#   The news_polling_loop fetches 50 articles per query — enough to cover all
-#   tickers in a batch. Articles are tagged with the ticker key, not filtered by
-#   the query result, so we get broad market coverage within the rate limit.
-#
-# PRICE POLLING:
-#   Polygon.io free tier has no ticker-count limit — all 50 tickers are fetched
-#   independently with a small sleep between requests to avoid throttling.
+# Polygon (Massive) free tier: 5 requests/minute.
+# The price loop sleeps 12s between each ticker request (= 5 req/min exactly).
+# After all 50 tickers, it sleeps 15 minutes before the next full cycle.
 # ──────────────────────────────────────────────────────────────────────────────
+NEWS_REQUESTS_PER_CYCLE = 40  # Hard cap per 12-hour cycle
 
 WATCHLIST = {
     # TODO (Phase 8 Cloud): Trim this dictionary down to just 10 representative tickers
@@ -157,37 +153,56 @@ async def price_polling_loop(pool, price_client: PriceClient, generator: SignalG
 
 async def news_polling_loop(pool, news_client: NewsClient, pipeline: SentimentPipeline):
     """
-    Infinite loop that fetches news headlines for all tickers in WATCHLIST every 15 minutes.
+    Infinite loop that fetches news headlines for tickers in WATCHLIST.
+    
+    Rate limit strategy:
+    - NewsAPI free tier: 100 requests/day.
+    - We cap each cycle at NEWS_REQUESTS_PER_CYCLE (40) with a 1s sleep between
+      each request to avoid burst throttling.
+    - The loop sleeps 12 hours between cycles, giving at most 2 cycles/day = 80
+      requests total, safely within the 100/day limit.
     """
     logger.info("Starting News Polling Loop...")
 
-    # TODO (Phase 8 Cloud): Remove this infinite `while True:` loop and its sleep delay (line 195)
+    # TODO (Phase 8 Cloud): Remove this infinite `while True:` loop and its sleep delay
     # so that the scheduler functions as a single-run job for manual/cron execution.
-    #Start an infinite loop
     while True:
 
         #Acquire a connection from the pool
         async with pool.acquire() as conn:
-    
+
+            requests_used = 0
+
             #Iterating for every ticker in WATCHLIST
             for ticker in WATCHLIST:
-            
+
+                # Hard cap: stop fetching if we've hit our per-cycle budget
+                if requests_used >= NEWS_REQUESTS_PER_CYCLE:
+                    logger.warning(f"NewsAPI budget reached ({NEWS_REQUESTS_PER_CYCLE} requests). Stopping news fetch for this cycle.")
+                    break
+
                 try:
 
                     #Fetching headlines
                     news_headlines = news_client.fetch_headlines(WATCHLIST.get(ticker), ticker)
-                
+                    requests_used += 1
+
                     if news_headlines is None:
-                        logger.warning("NewsAPI rate limit reached. Skipping remaining tickers for this cycle.")
+                        logger.warning("NewsAPI rate limit reached. Stopping news fetch for this cycle.")
                         break
 
                     if news_headlines:
 
                         #Running query to insert news records in database
-                        await insert_news_records(conn, news_headlines)   
-                
+                        await insert_news_records(conn, news_headlines)
+
+                    # Sleep 1s between requests to avoid burst throttling
+                    await asyncio.sleep(1)
+
                 except Exception as e:
                     logger.error(f"Failed to insert news article: {e}")
+
+            logger.info(f"News cycle complete. Requests used this cycle: {requests_used}/{NEWS_REQUESTS_PER_CYCLE}")
 
             try:
 
@@ -197,8 +212,10 @@ async def news_polling_loop(pool, news_client: NewsClient, pipeline: SentimentPi
 
             except Exception as e:
                 logger.info(f"Error In Classification Of Pending News: {e}")
-        #Wait for 15 minutes before next API request
-        await asyncio.sleep(900)
+
+        # Sleep 12 hours before next cycle (2 cycles/day = 80 requests max, within 100/day limit)
+        logger.info("News loop sleeping for 12 hours before next cycle...")
+        await asyncio.sleep(43200)
 
 async def main():
     

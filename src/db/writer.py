@@ -17,7 +17,7 @@ async def insert_news_records(conn, records: list[dict]) -> int:
     """
     #Guard clause: To check for empty file passed
     if not records:
-        logger.error("Empty Record File")
+        logger.debug("insert_news_records called with empty list, skipping.")
         return 0
 
     #SQL query to insert the values in news_sentiment table
@@ -31,27 +31,40 @@ async def insert_news_records(conn, records: list[dict]) -> int:
 
     #Iterating to extract and map articles and storing it in the news_records_tpl tuple
     for record in records:
-        ticker = record.get('ticker')
-        sentiment_score = record.get('sentiment_score')
-        sentiment_label = record.get('sentiment_label')
-        article_url = record.get('article_url')
-        article_title = record.get('article_title')
-        article_description = record.get('article_description')
-        published_at = record.get('published_at')
-        published_at = datetime.fromisoformat(record.get('published_at').replace('Z', '+00:00'))
-        content = record.get('content')
-        record_tpl = (ticker, sentiment_score, sentiment_label, article_url, article_title, article_description, published_at, content)
-        news_records_tpl.append(record_tpl)
+        try:
+            ticker = record.get('ticker')
+            sentiment_score = record.get('sentiment_score')
+            sentiment_label = record.get('sentiment_label')
+            article_url = record.get('article_url')
+            article_title = record.get('article_title')
+            article_description = record.get('article_description')
+            content = record.get('content')
 
+            # Guard: skip articles with a missing or unparseable timestamp
+            raw_published_at = record.get('published_at')
+            if not raw_published_at:
+                logger.warning(f"Skipping article with missing published_at: {article_url}")
+                continue
+            published_at = datetime.fromisoformat(raw_published_at.replace('Z', '+00:00'))
+
+            record_tpl = (ticker, sentiment_score, sentiment_label, article_url, article_title, article_description, published_at, content)
+            news_records_tpl.append(record_tpl)
+        except Exception as e:
+            logger.warning(f"Skipping malformed news record: {e}")
+            continue
+
+    if not news_records_tpl:
+        return 0
 
     #Running SQL query to store the news articles
-    await conn.executemany(query, news_records_tpl)
+    try:
+        await conn.executemany(query, news_records_tpl)
+    except Exception as e:
+        logger.error(f"Failed to batch insert news records: {e}")
+        return 0
 
-    #Logging the number of articles processed
-    number_of_articles = len(news_records_tpl)
-    
     #Returning the number of articles processed
-    return number_of_articles
+    return len(news_records_tpl)
     
 
 async def insert_price_ticks(conn, records: list[dict]) -> int:
@@ -67,7 +80,7 @@ async def insert_price_ticks(conn, records: list[dict]) -> int:
     """
     #Guard clause: To check for empty file passed
     if not records:
-        logger.error("Empty record file")
+        logger.debug("insert_price_ticks called with empty list, skipping.")
         return 0
     
     #SQL query to insert the values in price_ticks table
@@ -82,24 +95,37 @@ async def insert_price_ticks(conn, records: list[dict]) -> int:
 
     #Iterating to extract and map ticks and storing it in the price_records_tpl tuple
     for record in records:
-        ticker = record.get('ticker')
-        stock_date_time = record.get('stock_date_time')
-        price_open = record.get('price_open')
-        price_high = record.get('price_high')
-        price_low = record.get('price_low')
-        price_close = record.get("price_close")
-        stock_volume = record.get('stock_volume')
-        record_tpl = (ticker, stock_date_time, price_open, price_high, price_low, price_close, stock_volume)
-        price_records_tpl.append(record_tpl)
+        try:
+            ticker = record.get('ticker')
+            stock_date_time = record.get('stock_date_time')
+            price_open = record.get('price_open')
+            price_high = record.get('price_high')
+            price_low = record.get('price_low')
+            price_close = record.get("price_close")
+            stock_volume = record.get('stock_volume')
+
+            # Guard: skip ticks with any missing required field
+            if any(v is None for v in [ticker, stock_date_time, price_open, price_high, price_low, price_close, stock_volume]):
+                logger.warning(f"Skipping malformed price tick for {ticker}: missing required fields")
+                continue
+
+            record_tpl = (ticker, stock_date_time, price_open, price_high, price_low, price_close, stock_volume)
+            price_records_tpl.append(record_tpl)
+        except Exception as e:
+            logger.warning(f"Skipping malformed price record: {e}")
+            continue
+
+    if not price_records_tpl:
+        return 0
 
     #Running SQL query to store the price ticks
-    await conn.executemany(query, price_records_tpl)
+    try:
+        await conn.executemany(query, price_records_tpl)
+    except Exception as e:
+        logger.error(f"Failed to batch insert price ticks: {e}")
+        return 0
     
-    #Log the number of ticks processed.
-    number_of_stock_data = len(price_records_tpl)
-    
-    #Return the count of processed ticks.
-    return number_of_stock_data
+    return len(price_records_tpl)
 
 async def update_news_sentiments(conn, updates: list[tuple]) -> int:
     """
