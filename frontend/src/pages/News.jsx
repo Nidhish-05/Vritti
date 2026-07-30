@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react'
-import { Newspaper, ExternalLink, RefreshCw, AlertCircle } from 'lucide-react'
+import { Newspaper, ExternalLink, RefreshCw, AlertCircle, X, Maximize2 } from 'lucide-react'
 import { fetchLatestNews } from '../api/client'
 import { sanitizeUrl } from '../utils/security'
 
@@ -31,11 +31,20 @@ function fmtDate(iso) {
   })
 }
 
+/** Truncates text for the preview card */
+function truncateText(text, max = 150) {
+  if (!text) return ''
+  return text.length > max ? text.slice(0, max) + '...' : text
+}
+
 export default function News() {
   const [news, setNews] = useState([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState(null)
   const [lastUpdated, setLastUpdated] = useState(null)
+  
+  // State for the expanded "big card" modal
+  const [selectedArticle, setSelectedArticle] = useState(null)
 
   const loadNews = async () => {
     setLoading(true)
@@ -53,6 +62,15 @@ export default function News() {
   useEffect(() => {
     document.title = 'Vritti — Market News'
     loadNews()
+  }, [])
+
+  // Close modal on Escape key
+  useEffect(() => {
+    const handleEsc = (e) => {
+      if (e.key === 'Escape') setSelectedArticle(null)
+    }
+    window.addEventListener('keydown', handleEsc)
+    return () => window.removeEventListener('keydown', handleEsc)
   }, [])
 
   const lastUpdatedStr = lastUpdated
@@ -126,22 +144,22 @@ export default function News() {
           </div>
         )}
 
-        {/* News Feed */}
+        {/* News Feed - Little Card Previews */}
         {!loading && news.length > 0 && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
             {news.map((article, index) => (
-              <a
+              <div
                 key={article.id || index}
-                href={sanitizeUrl(article.article_url)}
-                target="_blank"
-                rel="noopener noreferrer"
+                onClick={() => setSelectedArticle(article)}
                 className="glass-card news-item-hover"
                 style={{
                   display: 'flex', flexDirection: 'column', gap: 12,
-                  padding: 24, borderRadius: 16, textDecoration: 'none',
-                  transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s',
+                  padding: 24, borderRadius: 16, cursor: 'pointer',
+                  transition: 'transform 0.2s, box-shadow 0.2s, border-color 0.2s, background-color 0.2s',
                   animation: `fade-in 0.4s ease both ${index * 30}ms`
                 }}
+                onMouseOver={(e) => e.currentTarget.style.backgroundColor = 'var(--bg-card-hover)'}
+                onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
               >
                 {/* Top row: Ticker + Sentiment */}
                 <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: 12 }}>
@@ -166,23 +184,116 @@ export default function News() {
                     fontSize: 16, fontWeight: 600, color: 'var(--text-primary)', 
                     lineHeight: 1.5, margin: 0, flex: 1
                   }}>
-                    {article.title || 'Untitled Article'}
+                    {article.article_title || 'Untitled Article'}
                   </h3>
-                  <ExternalLink size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: 4 }} />
+                  <Maximize2 size={16} style={{ color: 'var(--text-muted)', flexShrink: 0, marginTop: 4 }} />
                 </div>
                 
-                {/* Summary (if available) */}
-                {article.summary && (
+                {/* Preview Summary */}
+                {article.article_description && (
                   <p style={{ fontSize: 14, color: 'var(--text-secondary)', lineHeight: 1.6, margin: 0 }}>
-                    {article.summary}
+                    {truncateText(article.article_description, 180)}
                   </p>
                 )}
-              </a>
+              </div>
             ))}
           </div>
         )}
 
       </section>
+
+      {/* BIG CARD MODAL */}
+      {selectedArticle && (
+        <div 
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 9999,
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 24
+          }}
+          onClick={() => setSelectedArticle(null)}
+        >
+          <div 
+            className="glass-card"
+            style={{
+              width: '100%', maxWidth: 700, maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: 32, borderRadius: 20,
+              display: 'flex', flexDirection: 'column', gap: 24,
+              backgroundColor: 'var(--bg-surface)',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              className="btn-icon" 
+              onClick={() => setSelectedArticle(null)}
+              style={{ position: 'absolute', top: 24, right: 24 }}
+            >
+              <X size={24} />
+            </button>
+
+            {/* Header info */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', paddingRight: 40 }}>
+              <span style={{ 
+                fontSize: 16, fontWeight: 800, fontFamily: 'monospace',
+                color: 'var(--accent)', background: 'var(--accent-dim)',
+                padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-color)'
+              }}>
+                {selectedArticle.ticker}
+              </span>
+              <SentimentBadge label={selectedArticle.sentiment_label} score={selectedArticle.sentiment_score} />
+              <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+                {fmtDate(selectedArticle.published_at)}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.4, margin: 0 }}>
+              {selectedArticle.article_title || 'Untitled Article'}
+            </h2>
+
+            {/* Description & Content */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {selectedArticle.article_description && (
+                <p style={{ fontSize: 16, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0, fontWeight: 500 }}>
+                  {selectedArticle.article_description}
+                </p>
+              )}
+              {selectedArticle.content && (
+                <div style={{ 
+                  padding: 20, background: 'var(--bg-card)', 
+                  borderRadius: 12, border: '1px solid var(--border-color)' 
+                }}>
+                  <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+                    {selectedArticle.content}
+                  </p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 16, fontStyle: 'italic' }}>
+                    Note: Content is truncated by the News API.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer action */}
+            <div style={{ marginTop: 8, paddingTop: 24, borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
+              <a 
+                href={sanitizeUrl(selectedArticle.article_url)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn-primary"
+                style={{ padding: '12px 24px', fontSize: 15 }}
+              >
+                Read Full Article on Source <ExternalLink size={16} style={{ marginLeft: 8, display: 'inline' }} />
+              </a>
+            </div>
+
+          </div>
+        </div>
+      )}
+
     </main>
   )
 }
