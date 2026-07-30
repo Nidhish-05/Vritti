@@ -15,7 +15,7 @@
   --bg-card:         #081222;
   --bg-card-hover:   #0d1e35;
   --bg-input:        #06101c;
-  --bg-gradient:     linear-gradient(135deg, #020712 0%, #05102a 35%, #000000 70%, #030816 100%);
+  --bg-gradient:     linear-gradient(135deg, #020712 0%, #0a204a 35%, #000000 65%, #05102a 100%);
 
   --border-color:    rgba(0, 180, 255, 0.10);
   --border-hover:    rgba(0, 198, 255, 0.30);
@@ -110,7 +110,7 @@ body {
   background-color: var(--bg-primary);
   background-image: var(--bg-gradient, none);
   background-size: 300% 300%;
-  animation: flow-stream 25s ease infinite;
+  animation: flow-stream 12s ease-in-out infinite;
   color: var(--text-primary);
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
