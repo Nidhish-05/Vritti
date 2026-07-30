@@ -10,7 +10,7 @@
 
 :root[data-theme="dark"],
 :root {
-  --bg-primary:      #091413;
+  --bg-primary:      #000000;
   --bg-surface:      #040a14;
   --bg-card:         #081222;
   --bg-card-hover:   #0d1e35;
