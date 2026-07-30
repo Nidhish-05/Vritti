@@ -55,8 +55,8 @@
 :root[data-theme="light"] {
   --bg-primary:      #eef3ff;
   --bg-surface:      #ffffff;
-  --bg-card:         #f4f8ff;
-  --bg-card-hover:   #e8f0ff;
+  --bg-card:         #e2e8f0;
+  --bg-card-hover:   #cbd5e1;
   --bg-input:        #ffffff;
 
   --border-color:    rgba(0, 80, 200, 0.10);
@@ -70,25 +70,25 @@
   --accent-dim:      rgba(0, 102, 224, 0.08);
   --accent-glow:     0 0 20px rgba(0, 102, 224, 0.15);
 
-  --signal-buy:      #00a844;
-  --signal-buy-dim:  rgba(0, 168, 68, 0.10);
-  --signal-buy-glow: 0 0 16px rgba(0, 168, 68, 0.20);
+  --signal-buy:      #007a33;
+  --signal-buy-dim:  rgba(0, 122, 51, 0.10);
+  --signal-buy-glow: 0 0 16px rgba(0, 122, 51, 0.20);
 
   --signal-sell:     #d9002e;
   --signal-sell-dim: rgba(217, 0, 46, 0.10);
   --signal-sell-glow:0 0 16px rgba(217, 0, 46, 0.20);
 
-  --signal-hold:     #cc8800;
-  --signal-hold-dim: rgba(204, 136, 0, 0.10);
+  --signal-hold:     #c2410c;
+  --signal-hold-dim: rgba(194, 65, 12, 0.10);
 
-  --glass-bg:        rgba(255, 255, 255, 0.82);
+  --glass-bg:        rgba(226, 232, 240, 0.85);
   --glass-border:    rgba(0, 80, 200, 0.12);
 
   --marquee-bg:      rgba(238, 243, 255, 0.97);
   --marquee-border:  rgba(0, 80, 200, 0.15);
 
-  --shadow-card:     0 4px 24px rgba(0, 50, 150, 0.08);
-  --shadow-elevated: 0 8px 40px rgba(0, 50, 150, 0.14);
+  --shadow-card:     0 8px 30px rgba(0, 20, 60, 0.12);
+  --shadow-elevated: 0 12px 40px rgba(0, 20, 60, 0.18);
 
   --scrollbar-thumb: #b8cce8;
   --scrollbar-track: #eef3ff;
