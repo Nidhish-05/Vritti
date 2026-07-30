@@ -137,8 +137,8 @@ async def price_polling_loop(pool, price_client: PriceClient, generator: SignalG
             for ticker in WATCHLIST:
                 try:
 
-                    #Generating signals for the ticks
-                    signals = await generator.generate_signal(conn, ticker, window_hours=24)
+                    #Generating signals for the ticks (expanded to 72h to account for 24h NewsAPI delay)
+                    signals = await generator.generate_signal(conn, ticker, window_hours=72)
                 
                     if signals:
 
