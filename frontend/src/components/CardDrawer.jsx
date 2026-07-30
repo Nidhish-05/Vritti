@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react'
 import { useTickerData } from '../hooks/useTickerData'
 import { sanitizeUrl } from '../utils/security'
@@ -207,13 +208,13 @@ export default function CardDrawer({ ticker, hours = 168, onClose, isOpen }) {
       </div>
 
       {/* BIG CARD MODAL */}
-      {selectedArticle && (
+      {selectedArticle && createPortal(
         <div 
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.7)',
             backdropFilter: 'blur(8px)',
-            zIndex: 10000, // Higher than the drawer (which is typically ~300)
+            zIndex: 99999, // Higher than the drawer (which is typically ~300)
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 24
           }}
@@ -294,7 +295,8 @@ export default function CardDrawer({ ticker, hours = 168, onClose, isOpen }) {
               </a>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </>
   )

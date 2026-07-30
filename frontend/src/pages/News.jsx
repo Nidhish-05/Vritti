@@ -1,4 +1,5 @@
 import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { Newspaper, ExternalLink, RefreshCw, AlertCircle, X, Maximize2 } from 'lucide-react'
 import { fetchLatestNews } from '../api/client'
 import { sanitizeUrl } from '../utils/security'
@@ -202,14 +203,14 @@ export default function News() {
 
       </section>
 
-      {/* BIG CARD MODAL */}
-      {selectedArticle && (
+      {/* BIG CARD MODAL (Portaled to body to escape CSS transform contexts) */}
+      {selectedArticle && createPortal(
         <div 
           style={{
             position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
             backgroundColor: 'rgba(0, 0, 0, 0.7)',
             backdropFilter: 'blur(8px)',
-            zIndex: 9999,
+            zIndex: 99999,
             display: 'flex', alignItems: 'center', justifyContent: 'center',
             padding: 24
           }}
@@ -291,7 +292,8 @@ export default function News() {
             </div>
 
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </main>
