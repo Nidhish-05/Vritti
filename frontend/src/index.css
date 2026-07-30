@@ -36,8 +36,8 @@
   --signal-sell-dim: rgba(255, 61, 113, 0.12);
   --signal-sell-glow:0 0 16px rgba(255, 61, 113, 0.35);
 
-  --signal-hold:     #3b82f6;
-  --signal-hold-dim: rgba(59, 130, 246, 0.12);
+  --signal-hold:     #ffc940;
+  --signal-hold-dim: rgba(255, 201, 64, 0.12);
 
   --glass-bg:        rgba(6, 13, 26, 0.80);
   --glass-border:    rgba(0, 198, 255, 0.12);
