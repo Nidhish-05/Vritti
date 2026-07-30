@@ -10,12 +10,12 @@
 
 :root[data-theme="dark"],
 :root {
-  --bg-primary:      #000000;
+  --bg-primary:      #091413;
   --bg-surface:      #040a14;
   --bg-card:         #081222;
   --bg-card-hover:   #0d1e35;
   --bg-input:        #06101c;
-  --bg-gradient:     linear-gradient(-45deg, #000000 0%, #000000 25%, #0a2255 50%, #000000 75%, #000000 100%);
+  --bg-gradient:     none;
 
   --border-color:    rgba(0, 180, 255, 0.10);
   --border-hover:    rgba(0, 198, 255, 0.30);
@@ -109,8 +109,6 @@ html {
 body {
   background-color: var(--bg-primary);
   background-image: var(--bg-gradient, none);
-  background-size: 400% 400%;
-  animation: flow-stream 20s ease-in-out infinite;
   color: var(--text-primary);
   min-height: 100vh;
   transition: background-color 0.3s ease, color 0.3s ease;
