@@ -1,4 +1,5 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
+import { createPortal } from 'react-dom'
 import { X, TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react'
 import { useTickerData } from '../hooks/useTickerData'
 import { sanitizeUrl } from '../utils/security'
@@ -55,6 +56,7 @@ function SentimentBadge({ label }) {
  */
 export default function CardDrawer({ ticker, hours = 168, onClose, isOpen }) {
   const { signal, prices, sentiments, news, loading } = useTickerData(ticker, hours)
+  const [selectedArticle, setSelectedArticle] = useState(null)
 
   // Lock body scroll when drawer is open
   useEffect(() => {
@@ -172,19 +174,18 @@ export default function CardDrawer({ ticker, hours = 168, onClose, isOpen }) {
                       <div key={i} className="news-item">
                         <div className="news-item-top">
                           <SentimentBadge label={article.sentiment_label} />
-                          <a
-                            href={sanitizeUrl(article.article_url)}
-                            target="_blank"
-                            rel="noopener noreferrer"
+                          <div
+                            onClick={() => setSelectedArticle(article)}
                             className="news-item-title"
+                            style={{ cursor: 'pointer' }}
                           >
-                            {article.title
-                              ? (article.title.length > 90
-                                  ? article.title.slice(0, 90) + '…'
-                                  : article.title)
+                            {article.article_title
+                              ? (article.article_title.length > 90
+                                  ? article.article_title.slice(0, 90) + '…'
+                                  : article.article_title)
                               : 'Untitled article'
                             }
-                          </a>
+                          </div>
                           <ExternalLink size={12} style={{ flexShrink: 0, color: 'var(--text-muted)' }} />
                         </div>
                         <div className="news-item-meta">
@@ -205,6 +206,98 @@ export default function CardDrawer({ ticker, hours = 168, onClose, isOpen }) {
 
         </div>
       </div>
+
+      {/* BIG CARD MODAL */}
+      {selectedArticle && createPortal(
+        <div 
+          style={{
+            position: 'fixed', top: 0, left: 0, right: 0, bottom: 0,
+            backgroundColor: 'rgba(0, 0, 0, 0.7)',
+            backdropFilter: 'blur(8px)',
+            zIndex: 99999, // Higher than the drawer (which is typically ~300)
+            display: 'flex', alignItems: 'center', justifyContent: 'center',
+            padding: 24
+          }}
+          onClick={() => setSelectedArticle(null)}
+        >
+          <div 
+            className="glass-card"
+            style={{
+              width: '100%', maxWidth: 700, maxHeight: '90vh',
+              overflowY: 'auto',
+              padding: 32, borderRadius: 20,
+              display: 'flex', flexDirection: 'column', gap: 24,
+              backgroundColor: 'var(--bg-surface)',
+              position: 'relative'
+            }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <button 
+              className="btn-icon" 
+              onClick={() => setSelectedArticle(null)}
+              style={{ position: 'absolute', top: 24, right: 24 }}
+            >
+              <X size={24} />
+            </button>
+
+            {/* Header info */}
+            <div style={{ display: 'flex', gap: 16, alignItems: 'center', flexWrap: 'wrap', paddingRight: 40 }}>
+              <span style={{ 
+                fontSize: 16, fontWeight: 800, fontFamily: 'monospace',
+                color: 'var(--accent)', background: 'var(--accent-dim)',
+                padding: '6px 12px', borderRadius: 8, border: '1px solid var(--border-color)'
+              }}>
+                {ticker}
+              </span>
+              <SentimentBadge label={selectedArticle.sentiment_label} />
+              <span style={{ fontSize: 14, color: 'var(--text-muted)' }}>
+                {fmtDate(selectedArticle.published_at)}
+              </span>
+            </div>
+
+            {/* Title */}
+            <h2 style={{ fontSize: 24, fontWeight: 700, color: 'var(--text-primary)', lineHeight: 1.4, margin: 0 }}>
+              {selectedArticle.article_title || 'Untitled Article'}
+            </h2>
+
+            {/* Description & Content */}
+            <div style={{ display: 'flex', flexDirection: 'column', gap: 16 }}>
+              {selectedArticle.article_description && (
+                <p style={{ fontSize: 16, color: 'var(--text-primary)', lineHeight: 1.7, margin: 0, fontWeight: 500 }}>
+                  {selectedArticle.article_description}
+                </p>
+              )}
+              {selectedArticle.content && (
+                <div style={{ 
+                  padding: 20, background: 'var(--bg-card)', 
+                  borderRadius: 12, border: '1px solid var(--border-color)' 
+                }}>
+                  <p style={{ fontSize: 15, color: 'var(--text-secondary)', lineHeight: 1.7, margin: 0 }}>
+                    {selectedArticle.content}
+                  </p>
+                  <p style={{ fontSize: 13, color: 'var(--text-muted)', marginTop: 16, fontStyle: 'italic' }}>
+                    Note: Content is truncated by the News API.
+                  </p>
+                </div>
+              )}
+            </div>
+
+            {/* Footer action */}
+            <div style={{ marginTop: 8, paddingTop: 24, borderTop: '1px solid var(--border-color)', display: 'flex', justifyContent: 'flex-end' }}>
+              <a 
+                href={sanitizeUrl(selectedArticle.article_url)} 
+                target="_blank" 
+                rel="noopener noreferrer"
+                className="btn-primary"
+                style={{ padding: '12px 24px', fontSize: 15 }}
+              >
+                Read Full Article on Source <ExternalLink size={16} style={{ marginLeft: 8, display: 'inline' }} />
+              </a>
+            </div>
+          </div>
+        </div>,
+        document.body
+      )}
     </>
   )
 }

@@ -84,7 +84,7 @@ async def run_price_ingestion(conn, price_client: PriceClient, generator: Signal
 
     for ticker in WATCHLIST:
         try:
-            signal = await generator.generate_signal(conn, ticker, window_hours=24)
+            signal = await generator.generate_signal(conn, ticker, window_hours=72)
             if signal:
                 await insert_signal(conn, signal)
                 logger.info(f"[{ticker}] Signal: {signal.get('signal')} (sentiment={signal.get('sentiment_score'):.4f}, momentum={signal.get('momentum'):.4f})")
