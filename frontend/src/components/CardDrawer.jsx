@@ -1,4 +1,4 @@
-import { useEffect } from 'react'
+import { useEffect, useState } from 'react'
 import { X, TrendingUp, TrendingDown, Minus, ExternalLink } from 'lucide-react'
 import { useTickerData } from '../hooks/useTickerData'
 import { sanitizeUrl } from '../utils/security'
