@@ -60,8 +60,12 @@ async def classify_pending_news(conn, pipeline: SentimentPipeline) -> int:
             text = f"{article.get('article_title')}. {article.get('article_description')}. {article.get('content')}"
             pending_articles_list.append(text)
 
-    #Generating results for FinBERT
-    results = pipeline.score(pending_articles_list)
+        import asyncio
+        #Log that we are starting processing (so it doesn't look frozen)
+        logger.info(f"FinBERT is now scoring {len(pending_articles_list)} articles (this may take a few minutes)...")
+        
+        #Generating results for FinBERT in a background thread to avoid blocking the asyncio event loop!
+        results = await asyncio.to_thread(pipeline.score, pending_articles_list)
     
     #Empty list which will contain the updated articles 
     updates=[]

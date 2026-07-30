@@ -41,7 +41,7 @@ class SentimentPipeline:
             try:
 
                 #Running the FinBERT model and storing sentiment labels (NEGATIVE, NEUTRAL, POSITIVE) in form of dictionaries
-                results = self.nlp(texts, batch_size=batch_size)
+                results = self.nlp(texts, batch_size=batch_size, truncation=True, max_length=512)
 
                 #Returning results dictionary
                 return results
