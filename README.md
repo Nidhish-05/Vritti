@@ -4,7 +4,7 @@
 
 **A full-stack, end-to-end financial analytics platform** that ingests real-time stock prices and financial news, classifies market sentiment using FinBERT (a domain-specific BERT model), generates BUY/HOLD/SELL trading signals, and surfaces them through a live React dashboard backed by a FastAPI REST API.
 
-Built as a flagship portfolio project demonstrating the full ML engineering lifecycle:
+Built as a flagship portfolio project demonstrating the full ML engineering lifecycle:  
 **Data Ingestion → NLP Processing → Signal Generation → Production API → Interactive Frontend**
 
 > *Built independently by Nidhish Bansal — 4th-year CST student at MAIT Delhi — to challenge himself across the complete data science and software engineering stack, from asyncio pipelines to transformer NLP models to a production-grade React frontend.*
@@ -26,11 +26,11 @@ This project runs in two versions. **Choose the one that fits your situation:**
 ### ✈️ Option A — Cloud Preview (Quick, No Setup)
 > *For recruiters, peers, and anyone who wants to see the project live without installing anything.*
 
-**Visit:** `[Cloud URL — coming soon with Phase 8]`
+**🔗 Live Demo: [https://vritti-seven.vercel.app/](https://vritti-seven.vercel.app/)**
 
 - Serves signals for **10 tickers** across key market sectors
-- Fully interactive React dashboard — search tickers, view charts, read news
-- Data is refreshed manually by the author on a regular schedule
+- Fully interactive React dashboard — search tickers, view charts, read news with full article modal previews
+- Data is refreshed on a regular schedule via Render background worker
 - Hosted on **Vercel** (frontend) + **Render** (API) + **Neon** (PostgreSQL)
 
 > **Note on the 10-ticker limit:** The cloud version is intentionally reduced from 50 tickers to stay within free-tier API rate limits (NewsAPI: 100 requests/day). The architecture is identical to the full version — this is a resource constraint, not a feature limitation.
@@ -51,16 +51,16 @@ Run it locally following the [Local Setup](#local-setup) guide below. You get:
 
 ## 🌿 Branch Strategy
 
-This repository maintains two parallel versions on separate branches. This is a deliberate engineering decision — standard practice for separating a development environment from a constrained cloud demo environment.
+This repository maintains three branches. This is a deliberate engineering decision — separating the full development environment from a constrained cloud demo environment, while preserving the original history.
 
 ```
 vritti/
-├── master            → original working branch (full Phase 1-6 history)
-├── master-local      → full local version (source of truth — 50 tickers, TimescaleDB)
+├── master            → original working branch (Phase 1–6 history, preserved reference)
+├── master-local      → full local version (source of truth — 50 tickers, TimescaleDB, Docker)
 └── master-cloud      → cloud demo version (10 tickers, Neon PostgreSQL, Vercel + Render)
 ```
 
-### Why Two Branches?
+### Why Two Active Branches?
 
 | Reason | Explanation |
 |---|---|
@@ -73,7 +73,8 @@ vritti/
 | File | `master-local` | `master-cloud` |
 |---|---|---|
 | `sql/init.sql` | TimescaleDB extension + 3× `create_hypertable()` | These lines removed (standard PostgreSQL) |
-| `src/ingestion/scheduler.py` | 50 tickers | 10 representative tickers |
+| `src/ingestion/scheduler.py` | 50 tickers, infinite polling loop (5min prices / 15min news) | 10 representative tickers, single-run execution (cron-triggered) |
+| `window_hours` (signal generator) | 72h rolling window | 72h rolling window (accounts for NewsAPI 24h free-tier delay) |
 | Database | Local TimescaleDB Docker container | Neon.tech serverless PostgreSQL |
 | API deployment | Local uvicorn | Render Web Service |
 | Frontend deployment | Vite dev server | Vercel (auto-deploys on push) |
@@ -130,7 +131,7 @@ vritti/
                                          │                          │
                                          │  3D Tilt Signal Cards    │
                                          │  Price & Sentiment Charts│
-                                         │  Global News Feed        │
+                                         │  News Feed w/ Modals     │
                                          │  Live Ticker Marquee     │
                                          │  Dark / Light Mode       │
                                          └──────────────────────────┘
@@ -153,19 +154,25 @@ vritti/
 | **API** | FastAPI + Uvicorn | Async REST API, auto-generated Swagger docs |
 | **Frontend** | React 18 + Vite | SPA dashboard, hot-reload dev server |
 | **Charts** | Recharts | Composable, responsive financial chart components |
-| **Styling** | Vanilla CSS | Custom design system, glassmorphism, 3D floating card physics |
+| **Styling** | Vanilla CSS + CSS Variables | Custom design system, glassmorphism, dark/light themes |
 | **HTTP Client** | Axios | Frontend API calls via Vite proxy |
 | **Icons** | Lucide React | Consistent SVG icon library |
+| **React Portals** | `ReactDOM.createPortal` | Overlay modals rendered above CSS transform contexts |
 | **Containerisation** | Docker + Docker Compose | Reproducible local TimescaleDB environment |
 | **Frontend Deploy** | Vercel | CDN-hosted SPA (master-cloud) |
 | **API Deploy** | Render | Free-tier Web Service (master-cloud) |
-| **CI/CD** | GitHub Actions | Lint + test + build on every push *(Phase 7 — planned)* |
 
 ---
 
-## Watchlist — 50 Tickers (master-local)
+## Watchlist
 
-Covering 8 market sectors. The `master-cloud` branch uses a representative 10-ticker subset.
+### Cloud Version — 10 Tickers (`master-cloud`)
+
+`AAPL` · `TSLA` · `MSFT` · `GOOGL` · `AMZN` · `NVDA` · `JPM` · `META` · `NFLX` · `AMD`
+
+### Full Local Version — 50 Tickers (`master-local`)
+
+Covering 8 market sectors.
 
 | Sector | Tickers |
 |---|---|
@@ -183,7 +190,7 @@ Covering 8 market sectors. The `master-cloud` branch uses a representative 10-ti
 
 ## API Endpoints
 
-All endpoints are documented interactively at **`http://localhost:8000/docs`** (Swagger UI) when running locally.
+All endpoints are documented interactively at **`http://localhost:8000/docs`** (Swagger UI) when running locally, or at your Render API URL when deployed.
 
 | Method | Endpoint | Description |
 |---|---|---|
@@ -199,53 +206,92 @@ All endpoints are documented interactively at **`http://localhost:8000/docs`** (
 
 ## Local Setup
 
-**Prerequisites:** Python 3.11+, Node.js 20+, Docker Desktop, Conda
+**Prerequisites:** Node.js 20+, Docker Desktop
 
 ```bash
 # 1. Clone the repository (master-local branch for full version)
 git clone -b master-local https://github.com/Nidhish-05/Vritti.git
 cd Vritti
 
-# 2. Create & activate conda environment
-conda create -n vritti python=3.11
-conda activate vritti
-
-# 3. Install Python dependencies
-pip install -r requirements.txt
-
-# 4. Configure environment variables
+# 2. Configure environment variables
 cp .env.example .env
-# Edit .env — add your NEWS_API_KEY and POLYGON_API_KEY
+# Edit .env — add your NEWS_API_KEY and MASSIVE_API_KEY
 
-# 5. Start TimescaleDB (Docker)
-docker-compose up -d
+# 3. Start the Backend Infrastructure (Database, API, Scheduler)
+docker-compose up -d --build
 
-# 6. Initialise the database schema (run once)
-# Connect to the DB and execute sql/init.sql
-
-# 7. Start the FastAPI backend  [Terminal 1]
-python -m uvicorn src.api.main:app --reload
 # → API:     http://localhost:8000
 # → Swagger: http://localhost:8000/docs
+#
+# The database will automatically initialize. The scheduler fetches prices
+# every 5 minutes, news every 15 minutes, then runs FinBERT classification
+# and signal generation continuously in the background.
 
-# 8. Start the ingestion pipeline  [Terminal 2]
-python -m src.ingestion.scheduler
-# Fetches news every 15min, prices every 5min — let this run
-
-# 9. Run FinBERT classifier  [Terminal 3 — run periodically or after scheduler cycles]
-python -m src.processing.classifier
-
-# 10. Generate signals  [Terminal 4 — run periodically]
-python -m src.signals.generator
-
-# 11. Start the React frontend  [Terminal 5]
+# 4. Start the React frontend
 cd frontend
 npm install
 npm run dev
 # → Dashboard: http://localhost:5173
 ```
 
-> **First-time data note:** After starting the scheduler (step 8), wait at least one full cycle (~15 minutes) before running the classifier and signal generator. The dashboard will show empty states until the first batch of data flows through the pipeline.
+> **First-time data note:** After starting the containers, wait at least one full cycle (~15 minutes) for the scheduler to fetch data, run the FinBERT classifier, and generate signals. The dashboard will show empty states until the first batch of data flows through the pipeline.
+
+> **NewsAPI free tier note:** The NewsAPI free tier delays article delivery by ~24 hours. The signal generator uses a 72-hour rolling window to ensure enough articles are always captured for accurate sentiment scoring.
+
+---
+
+## Frontend Features
+
+The React dashboard is a fully interactive SPA with the following key features:
+
+### 🏠 Market Overview (Home)
+- **Signal Cards** — 3D tilt-on-hover cards for each ticker displaying the latest BUY/HOLD/SELL signal with colour-coded badges and sentiment score
+- **Ticker Drawer** — click any signal card to open a full side panel with live price chart, sentiment chart, and per-ticker news feed
+- **Live Ticker Marquee** — scrolling bottom bar showing all tickers with live prices, pauses on hover
+
+### 📰 News Feed
+- **Global news page** listing all recently classified articles with sentiment badges
+- **Article Modal** — click any news card to open a full-screen big card preview with title, description, content snippet, sentiment score, and a direct link to the source
+- Modals are rendered via `ReactDOM.createPortal` directly to `document.body` to escape CSS transform stacking contexts
+
+### 🎨 Design System
+- **Dark mode** (default) — pure black background, deep navy glass cards, electric blue accent
+- **Light mode** — off-white cards with strong drop shadows for a "floating" appearance, deep forest green BUY, crimson SELL, blue HOLD signals
+- **Signal colour system (dark):** BUY = emerald green, HOLD = amber yellow, SELL = crimson red
+- **Signal colour system (light):** BUY = forest green, HOLD = blue, SELL = crimson red
+- **Glassmorphism** cards with `backdrop-filter: blur()` and smooth hover transitions
+- **Smooth page-entry animations** via CSS `@keyframes fade-in`
+
+---
+
+## Cloud Deployment Architecture
+
+```
+GitHub (master-cloud)
+    │
+    ├── push → Vercel (Auto-deploys React frontend)
+    │              └── https://vritti-seven.vercel.app/
+    │                  VITE_API_BASE_URL → Render API URL
+    │
+    └── push → Render (Deploys FastAPI backend)
+                   └── ASYNC_DATABASE_URL → Neon PostgreSQL
+                       ALLOWED_ORIGINS → Vercel frontend URL
+```
+
+### Environment Variables Required
+
+**Render (Backend API):**
+| Variable | Value |
+|---|---|
+| `ASYNC_DATABASE_URL` | Neon PostgreSQL connection string |
+| `ALLOWED_ORIGINS` | `https://vritti-seven.vercel.app` |
+| `NEWS_API_KEY` | Your NewsAPI key |
+| `MASSIVE_API_KEY` | Your Polygon/Massive API key |
+
+**Vercel (Frontend):**
+| Variable | Value |
+|---|---|
+| `VITE_API_BASE_URL` | Your Render backend URL (no trailing slash) |
 
 ---
 
@@ -259,8 +305,9 @@ npm run dev
 | Phase 4 — Aggregation & Signal Logic | master-local | ✅ Complete | EWMA aggregation, 5-period momentum, signal generator |
 | Phase 5 — FastAPI Backend | master-local | ✅ Complete | Connection pool, CORS, all REST routes |
 | Phase 6 — React Dashboard | master-local | ✅ Complete | 3D tilt cards, charts, news feed, dark/light mode, 50-ticker watchlist |
-| Phase 7 — CI/CD + Docker Compose | master-local | ⏳ In Progress | Dockerfile, full docker-compose, GitHub Actions CI workflow |
-| Phase 8 — Cloud Deployment | master-cloud | ⏳ Planned | Vercel + Render + Neon, master-cloud branch setup, GitHub Actions CD |
+| Phase 7 — CI/CD + Docker Compose | master-local | ✅ Complete | Dockerfile, full docker-compose, GitHub Actions CI workflow |
+| Phase 8 — Cloud Deployment | master-cloud | ✅ Complete | Vercel + Render + Neon, master-cloud branch, CORS lock, data migration |
+| Phase 9 — UI Polish & Bug Fixes | both | ✅ Complete | News article modals (createPortal), dark/light theme overhaul, marquee speed, signal colour system |
 
 ---
 
@@ -276,14 +323,22 @@ npm run dev
 
 ## What I Learned
 
-> *To be written honestly after Phase 8 is complete. Will cover: building async Python data pipelines from scratch, working with TimescaleDB hypertables, integrating FinBERT (a domain-specific transformer model) into a production ingestion loop, designing REST APIs with FastAPI, building a React frontend with custom 3D physics-based UI mechanics, and making real architectural tradeoffs between local capability and cloud deployability.*
+Building Vritti was a deep dive into full-stack ML engineering. Transitioning from a Python-heavy ML focus to an end-to-end distributed system presented unique challenges:
+
+1. **Concurrency and Scaling:** Building the ingestion layer from scratch with `asyncio` and `asyncpg` highlighted the importance of non-blocking I/O. Managing database connection pools and API rate limits (like NewsAPI's strict 100/day limit) without crashing the pipeline was a critical exercise in constraint-aware engineering.
+2. **Time-Series Data:** Utilizing TimescaleDB hypertables locally taught me the value of database partitioning for high-frequency financial data, ensuring that range queries remain fast as the dataset grows.
+3. **ML in Production:** Integrating `ProsusAI/finbert` wasn't just about calling `model.predict()`. It required handling batching, mapping output tensors to SQL types, and managing the harsh reality of RAM constraints (~1.5GB needed) which ultimately drove the architectural split between local processing and cloud deployment.
+4. **Cloud Trade-offs:** Phase 8 was a masterclass in compromise. Stripping down the local 50-ticker TimescaleDB monolith into a 10-ticker serverless stack (Vercel + Render + Neon) proved that architecture is often dictated by deployment constraints and cost, not just code capability.
+5. **CSS Stacking Contexts:** A subtle but critical bug — news modals rendered correctly in the DOM but appeared invisible. Root cause: CSS `transform` on parent containers creates a new stacking context, breaking `position: fixed`. The fix was `ReactDOM.createPortal` to teleport the modal directly into `document.body`, which is the industry-standard pattern for this exact problem.
+6. **Modern Frontend:** Writing custom CSS for 3D physics-based floating cards and integrating Recharts in React 18 bridged the gap between raw data and actionable, engaging user interfaces.
+7. **Data Migration:** Learned the nuances of migrating from a TimescaleDB instance (with custom extensions) to a standard PostgreSQL host on Neon by exporting raw data as CSVs and re-importing them — cleanly bypassing extension incompatibility issues.
 
 ---
 
 ## Author
 
-**Nidhish Bansal**
-B.Tech Computer Science and Technology, MAIT Delhi (2023–27)
+**Nidhish Bansal**  
+B.Tech Computer Science and Technology, MAIT Delhi (2023–27)  
 Data Science & ML Enthusiast | Building things that turn raw data into decisions.
 
 [GitHub](https://github.com/Nidhish-05) · [LinkedIn](https://linkedin.com/in/nidhish-bansal-906a83298)
